@@ -1,0 +1,399 @@
+{
+  "info": {
+    "title": "Sinan",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [],
+  "paths": {
+    "/user/change-password": {
+      "post": {
+        "summary": "修改密码",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "satoken",
+            "in": "header",
+            "description": "",
+            "default": "{{satoken}}",
+            "type": "string",
+            "x-example": "{{satoken}}"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/ChangePasswordReq",
+              "description": "修改密码请求"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {},
+            "examples": {
+              "application/json": {
+                "code": 0,
+                "message": "",
+                "description": "",
+                "data": "",
+                "date": 0,
+                "flag": false,
+                "messageId": ""
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/ResultString",
+              "description": "修改结果"
+            }
+          }
+        },
+        "security": [],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/user/key": {
+      "post": {
+        "summary": "创建用户Key",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "satoken",
+            "in": "header",
+            "description": "",
+            "default": "{{satoken}}",
+            "type": "string",
+            "x-example": "{{satoken}}"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/CreateUserKeyReq",
+              "description": "创建用户Key请求"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {},
+            "examples": {
+              "application/json": {
+                "code": 0,
+                "message": "",
+                "description": "",
+                "data": {
+                  "id": "",
+                  "userId": "",
+                  "accessKey": "",
+                  "createTime": "",
+                  "updateTime": ""
+                },
+                "date": 0,
+                "flag": false,
+                "messageId": ""
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/ResultUserKeyResp",
+              "description": "用户Key信息"
+            }
+          }
+        },
+        "security": [],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/user/keys": {
+      "get": {
+        "summary": "获取用户的所有Key",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "satoken",
+            "in": "header",
+            "description": "",
+            "default": "{{satoken}}",
+            "type": "string",
+            "x-example": "{{satoken}}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {},
+            "examples": {
+              "application/json": {
+                "code": 0,
+                "message": "",
+                "description": "",
+                "data": [
+                  {
+                    "id": "",
+                    "userId": "",
+                    "accessKey": "",
+                    "createTime": "",
+                    "updateTime": ""
+                  }
+                ],
+                "date": 0,
+                "flag": false,
+                "messageId": ""
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/ResultListUserKeyResp",
+              "description": "用户Key列表"
+            }
+          }
+        },
+        "security": [],
+        "produces": [
+          "application/json"
+        ]
+      }
+    },
+    "/user/key/{keyId}": {
+      "delete": {
+        "summary": "删除用户Key",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "keyId",
+            "in": "path",
+            "description": "密钥ID",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "satoken",
+            "in": "header",
+            "description": "",
+            "default": "{{satoken}}",
+            "type": "string",
+            "x-example": "{{satoken}}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {},
+            "examples": {
+              "application/json": {
+                "code": 0,
+                "message": "",
+                "description": "",
+                "data": "",
+                "date": 0,
+                "flag": false,
+                "messageId": ""
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/ResultString",
+              "description": "删除结果"
+            }
+          }
+        },
+        "security": [],
+        "produces": [
+          "application/json"
+        ]
+      }
+    }
+  },
+  "security": [],
+  "swagger": "2.0",
+  "definitions": {
+    "ResultString": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "消息"
+        },
+        "description": {
+          "type": "string",
+          "description": "异常描述"
+        },
+        "data": {
+          "type": "string",
+          "description": "数据"
+        },
+        "date": {
+          "type": "integer",
+          "description": "时间",
+          "format": "int64"
+        },
+        "flag": {
+          "type": "boolean",
+          "description": "状态"
+        },
+        "messageId": {
+          "type": "string",
+          "description": "消息ID"
+        }
+      }
+    },
+    "UserKeyResp": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "密钥ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "用户ID"
+        },
+        "accessKey": {
+          "type": "string",
+          "description": "访问密钥"
+        },
+        "createTime": {
+          "type": "string",
+          "description": "创建时间"
+        },
+        "updateTime": {
+          "type": "string",
+          "description": "更新时间"
+        }
+      }
+    },
+    "ResultUserKeyResp": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "消息"
+        },
+        "description": {
+          "type": "string",
+          "description": "异常描述"
+        },
+        "data": {
+          "$ref": "#/definitions/UserKeyResp",
+          "description": "数据"
+        },
+        "date": {
+          "type": "integer",
+          "description": "时间",
+          "format": "int64"
+        },
+        "flag": {
+          "type": "boolean",
+          "description": "状态"
+        },
+        "messageId": {
+          "type": "string",
+          "description": "消息ID"
+        }
+      }
+    },
+    "CreateUserKeyReq": {
+      "type": "object",
+      "properties": {
+        "keyName": {
+          "type": "string",
+          "description": "密钥名称/描述（可选）"
+        },
+        "description": {
+          "type": "string",
+          "description": "密钥用途描述（可选）"
+        }
+      }
+    },
+    "ResultListUserKeyResp": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "状态码"
+        },
+        "message": {
+          "type": "string",
+          "description": "消息"
+        },
+        "description": {
+          "type": "string",
+          "description": "异常描述"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UserKeyResp",
+            "description": "用户密钥响应"
+          },
+          "description": "数据"
+        },
+        "date": {
+          "type": "integer",
+          "description": "时间",
+          "format": "int64"
+        },
+        "flag": {
+          "type": "boolean",
+          "description": "状态"
+        },
+        "messageId": {
+          "type": "string",
+          "description": "消息ID"
+        }
+      }
+    },
+    "ChangePasswordReq": {
+      "type": "object",
+      "properties": {
+        "currentPassword": {
+          "type": "string",
+          "description": "当前密码"
+        },
+        "newPassword": {
+          "type": "string",
+          "description": "新密码",
+          "minLength": 6,
+          "maxLength": 20
+        },
+        "confirmPassword": {
+          "type": "string",
+          "description": "确认新密码"
+        }
+      },
+      "required": [
+        "currentPassword",
+        "newPassword",
+        "confirmPassword"
+      ]
+    }
+  },
+  "securityDefinitions": {},
+  "x-components": {}
+}

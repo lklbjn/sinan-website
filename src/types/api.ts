@@ -288,3 +288,8 @@ export interface ChangePasswordReq {
     newPassword: string
     confirmPassword: string
 }
+
+export interface PasskeyRegistrationReq {
+    credential: string
+    describe: string
+}

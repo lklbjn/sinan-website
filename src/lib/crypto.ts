@@ -33,7 +33,7 @@ export async function encryptPassword(password: string): Promise<string> {
   try {
     // 将密码转换为Uint8Array
     const data = stringToUint8Array(password)
-    
+
     // 使用Web Crypto API的SHA-256算法进行哈希
     const hashBuffer = await crypto.subtle.digest('SHA-256', data)
     

@@ -140,7 +140,7 @@ export class BookmarkAPI {
 
     // 删除书签
     static delete(id: string) {
-        return http.delete<string>('/bookmark', {params: {id}})
+        return http.delete<string>('/bookmark', null, {params: {id}})
     }
 
     // 给书签加星标

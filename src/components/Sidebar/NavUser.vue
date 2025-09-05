@@ -15,6 +15,8 @@ import {
   Key,
   Copy,
   Plus,
+  User,
+  Edit,
 } from "lucide-vue-next"
 
 import {
@@ -58,8 +60,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import {UserAPI, BookmarkAPI, SpaceAPI, TagAPI} from '@/services/api'
-import type {UserInfo, SpaceResp, TagResp, ChangePasswordReq, UserKeyResp, CreateUserKeyReq} from '@/types/api'
+import {UserAPI, BookmarkAPI, SpaceAPI, TagAPI, PasskeyAPI} from '@/services/api'
+import type {UserInfo, SpaceResp, TagResp, ChangePasswordReq, UserKeyResp, CreateUserKeyReq, PasskeyResp} from '@/types/api'
 import Icon from "@/components/Base/Icon.vue"
 import {eventBus, EVENTS} from '@/utils/eventBus'
 import {encryptPasswordWithSalt} from '@/lib/crypto'
@@ -141,6 +143,25 @@ const showCreateKeyForm = ref(false)
 const keyErrors = ref<string[]>([])
 const showNewKeyDialog = ref(false)
 const newCreatedKey = ref<UserKeyResp | null>(null)
+
+// 账户设置相关
+const showAccountSettingsDialog = ref(false)
+const isEditingName = ref(false)
+const newUserName = ref('')
+const userPasskeys = ref<PasskeyResp[]>([])
+const isLoadingPasskeys = ref(false)
+const isUpdatingPasskey = ref(false)
+const isDeletingPasskey = ref(false)
+const isRegisteringPasskey = ref(false)
+const showRegisterPasskeyForm = ref(false)
+const editingPasskeyId = ref<string>('')
+const editingPasskeyDescription = ref('')
+const accountSettingsErrors = ref<string[]>([])
+const newPasskeyForm = ref({
+  name: '',
+  description: ''
+})
+
 
 const fetchUserInfo = async () => {
   try {
@@ -716,6 +737,283 @@ const closeKeyManagementDialog = () => {
   resetCreateKeyForm()
 }
 
+// 打开账户设置对话框
+const openAccountSettingsDialog = async () => {
+  showAccountSettingsDialog.value = true
+  isEditingName.value = false
+  showRegisterPasskeyForm.value = false
+  newUserName.value = user.value?.name || ''
+  resetNewPasskeyForm()
+  await fetchUserPasskeys()
+}
+
+// 重置新Passkey表单
+const resetNewPasskeyForm = () => {
+  newPasskeyForm.value = {
+    name: '',
+    description: ''
+  }
+}
+
+// 获取用户Passkey凭证
+const fetchUserPasskeys = async () => {
+  try {
+    isLoadingPasskeys.value = true
+    accountSettingsErrors.value = []
+    const response = await PasskeyAPI.getPasskeys()
+    
+    if (response.code === 0 && response.data) {
+      userPasskeys.value = response.data
+    } else {
+      accountSettingsErrors.value = [response.message || '获取Passkey列表失败']
+    }
+  } catch (error) {
+    console.error('获取用户Passkey失败:', error)
+    accountSettingsErrors.value = ['获取Passkey列表失败，请稍后重试']
+  } finally {
+    isLoadingPasskeys.value = false
+  }
+}
+
+// 开始编辑用户名
+const startEditingName = () => {
+  isEditingName.value = true
+  newUserName.value = user.value?.name || ''
+}
+
+// 取消编辑用户名
+const cancelEditingName = () => {
+  isEditingName.value = false
+  newUserName.value = user.value?.name || ''
+}
+
+// 保存用户名
+const saveUserName = async () => {
+  if (!newUserName.value.trim()) {
+    accountSettingsErrors.value = ['用户名不能为空']
+    return
+  }
+  
+  try {
+    // 这里需要调用更新用户名的API
+    // 暂时先模拟成功
+    if (user.value) {
+      user.value.name = newUserName.value
+    }
+    isEditingName.value = false
+    accountSettingsErrors.value = []
+  } catch (error) {
+    console.error('更新用户名失败:', error)
+    accountSettingsErrors.value = ['更新用户名失败，请稍后重试']
+  }
+}
+
+// 开始编辑Passkey描述
+const startEditingPasskeyDescription = (passkey: PasskeyResp) => {
+  editingPasskeyId.value = passkey.id
+  editingPasskeyDescription.value = passkey.describe || ''
+}
+
+// 取消编辑Passkey描述
+const cancelEditingPasskeyDescription = () => {
+  editingPasskeyId.value = ''
+  editingPasskeyDescription.value = ''
+}
+
+// 保存Passkey描述
+const savePasskeyDescription = async (passkeyId: string) => {
+  try {
+    isUpdatingPasskey.value = true
+    accountSettingsErrors.value = []
+    const response = await PasskeyAPI.updatePasskeyDescription({id: passkeyId, describe: editingPasskeyDescription.value})
+    
+    if (response.code === 0) {
+      // 更新本地数据
+      const passkey = userPasskeys.value.find(p => p.id === passkeyId)
+      if (passkey) {
+        passkey.describe = editingPasskeyDescription.value
+      }
+      editingPasskeyId.value = ''
+      editingPasskeyDescription.value = ''
+    } else {
+      accountSettingsErrors.value = [response.message || '更新描述失败']
+    }
+  } catch (error) {
+    console.error('更新Passkey描述失败:', error)
+    accountSettingsErrors.value = ['更新描述失败，请稍后重试']
+  } finally {
+    isUpdatingPasskey.value = false
+  }
+}
+
+// 删除Passkey凭证
+const deletePasskey = async (passkeyId: string) => {
+  try {
+    isDeletingPasskey.value = true
+    accountSettingsErrors.value = []
+    const response = await PasskeyAPI.deletePasskey(passkeyId)
+    
+    if (response.code === 0) {
+      // 从本地列表中移除
+      userPasskeys.value = userPasskeys.value.filter(p => p.id !== passkeyId)
+    } else {
+      accountSettingsErrors.value = [response.message || '删除Passkey失败']
+    }
+  } catch (error) {
+    console.error('删除Passkey失败:', error)
+    accountSettingsErrors.value = ['删除Passkey失败，请稍后重试']
+  } finally {
+    isDeletingPasskey.value = false
+  }
+}
+
+
+// Base64URL 转 ArrayBuffer
+const base64UrlToArrayBuffer = (base64Url: any) => {
+  const padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
+  const base64 = (base64Url + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  
+  const rawData = window.atob(base64);
+  const buffer = new Uint8Array(rawData.length);
+  
+  for (let i = 0; i < rawData.length; i++) {
+    buffer[i] = rawData.charCodeAt(i);
+  }
+  
+  return buffer.buffer;
+};
+// ArrayBuffer 转 Base64URL
+const arrayBufferToBase64Url = (arrayBuffer: any) => {
+  const bytes = new Uint8Array(arrayBuffer);
+  let str = '';
+  
+  for (const byte of bytes) {
+    str += String.fromCharCode(byte);
+  }
+  
+  const base64 = window.btoa(str);
+  
+  return base64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+};
+
+// 将 PublicKeyCredential 转换为 JSON
+const publicKeyCredentialToJSON = (credential: unknown): unknown => {
+  if (Array.isArray(credential)) {
+    return credential.map(publicKeyCredentialToJSON);
+  }
+  
+  if (credential instanceof ArrayBuffer) {
+    return arrayBufferToBase64Url(credential);
+  }
+  
+  if (credential && typeof credential === 'object') {
+    const obj: Record<string, unknown> = {};
+    for (const key in credential) {
+      obj[key] = publicKeyCredentialToJSON(
+        (credential as Record<string, unknown>)[key]
+      );
+    }
+    return obj;
+  }
+  
+  return credential;
+};
+
+// 显示注册Passkey表单
+const showRegisterForm = () => {
+  showRegisterPasskeyForm.value = true
+  resetNewPasskeyForm()
+}
+
+// 注册新Passkey
+const registerPasskey = async () => {
+  try {
+    isRegisteringPasskey.value = true
+    accountSettingsErrors.value = []
+
+    // 1. 获取注册选项
+    const optionsResp = await PasskeyAPI.getRegistrationOptions();
+    let options;
+
+    // 如果返回的是字符串，则解析它
+    if (typeof optionsResp.data === 'string') {
+        options = JSON.parse(optionsResp.data);
+    }
+    options = options.publicKey
+    console.info('publicKey:', options);
+
+    // 转换必要的字段为 ArrayBuffer
+    options.user.id = base64UrlToArrayBuffer(options.user.id);
+    options.challenge = base64UrlToArrayBuffer(options.challenge);
+    
+    // 转换 excludeCredentials 中的 id 字段
+    if (options.excludeCredentials && Array.isArray(options.excludeCredentials)) {
+      options.excludeCredentials = options.excludeCredentials.map((cred: any) => ({
+        ...cred,
+        id: base64UrlToArrayBuffer(cred.id)
+      }));
+    }
+    
+    // 2. 创建凭证
+    const cred = await navigator.credentials.create({
+      publicKey: options
+    }) as PublicKeyCredential;
+    console.info('cred:', cred);
+
+    const attestationResponse = cred.response as AuthenticatorAttestationResponse;
+
+    const credential = {
+        id: cred.id,
+        rawId: arrayBufferToBase64Url(cred.rawId),
+        type: cred.type,
+        authenticatorAttachment: cred?.authenticatorAttachment,
+        clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : [],
+        response: {
+            clientDataJSON: arrayBufferToBase64Url(attestationResponse.clientDataJSON),
+            attestationObject: arrayBufferToBase64Url(attestationResponse.attestationObject),
+            transports: attestationResponse.getTransports ? attestationResponse.getTransports() : []
+        }
+    };
+    
+    // 3. 验证注册
+    const credentialJson = JSON.stringify(publicKeyCredentialToJSON(credential));
+    console.info('credentialJson:', credentialJson);
+    const requestData = {
+      credential: credentialJson,
+      describe: newPasskeyForm.value.description
+    };
+    const response = await PasskeyAPI.verifyRegistration(requestData);
+    if (response.code === 0 && response.data) {
+      // 注册成功，添加到列表
+      console.log("注册成功: ",response.data);
+      fetchUserPasskeys();
+      showRegisterPasskeyForm.value = false
+      resetNewPasskeyForm()
+    } else {
+      accountSettingsErrors.value = [response.message || '注册Passkey失败']
+    }
+  } catch (error) {
+    console.error('注册Passkey失败:', error)
+    accountSettingsErrors.value = ['注册Passkey失败，请稍后重试']
+  } finally {
+    isRegisteringPasskey.value = false
+  }
+}
+
+// 关闭账户设置对话框
+const closeAccountSettingsDialog = () => {
+  showAccountSettingsDialog.value = false
+  isEditingName.value = false
+  showRegisterPasskeyForm.value = false
+  editingPasskeyId.value = ''
+  accountSettingsErrors.value = []
+}
+
 onMounted(() => {
   fetchUserInfo()
 })
@@ -753,17 +1051,15 @@ onMounted(() => {
             :side-offset="4"
         >
           <DropdownMenuLabel class="p-0 font-normal">
-            <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-              <Avatar class="h-8 w-8 rounded-lg">
+            <div class="flex items-center gap-2 px-2 py-2 text-left text-sm">
+              <Avatar class="h-7 w-7 rounded-lg flex-shrink-0">
                 <AvatarImage :src="user.avatar" :alt="user.name"/>
                 <AvatarFallback class="rounded-lg">
                   {{ user.name.slice(0, 2).toUpperCase() }}
                 </AvatarFallback>
               </Avatar>
-              <div class="grid flex-1 text-left text-sm leading-tight">
-                <span class="truncate font-semibold">{{ user.name }}</span>
-                <span class="truncate text-xs">{{ user.email }}</span>
-              </div>
+              <span class="font-semibold">{{ user.name }}</span>
+              <span class="text-xs text-muted-foreground">{{ user.email }}</span>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator/>
@@ -798,7 +1094,7 @@ onMounted(() => {
               <Key/>
               插件密钥
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem @click="openAccountSettingsDialog">
               <BadgeCheck/>
               账户设置
             </DropdownMenuItem>
@@ -1190,26 +1486,19 @@ onMounted(() => {
             <div
                 v-for="key in userKeys"
                 :key="key.id"
-                class="border rounded-lg p-3 bg-card space-y-2"
+                class="border rounded-lg p-3 bg-card"
             >
-              <!-- 第一行：名称、描述、ID和创建时间 -->
+              <!-- 单行显示：名称、描述、密钥值、创建时间和删除按钮 -->
               <div class="flex items-center gap-2 text-sm">
-                <h4 class="font-medium truncate">{{ key.keyName || '未命名密钥' }}</h4>
-                <span v-if="key.description" class="text-muted-foreground truncate">
-                  - {{ key.description }}
+                <h4 class="font-medium min-w-[80px]">{{ key.keyName || '未命名密钥' }}</h4>
+                <span v-if="key.description" class="text-muted-foreground flex-1 truncate">
+                  {{ key.description }}
                 </span>
-                <div class="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded text-nowrap ml-auto">
-                  {{ key.id.slice(0, 8) }}...
+                <div class="font-mono text-xs bg-muted px-2 py-1 rounded border max-w-[200px]">
+                  <span class="text-muted-foreground truncate block">{{ key.accessKey }}</span>
                 </div>
                 <div class="text-xs text-muted-foreground text-nowrap">
                   {{ new Date(key.createTime).toLocaleDateString() }}
-                </div>
-              </div>
-
-              <!-- 第二行：密钥值和删除按钮 -->
-              <div class="flex items-center gap-2">
-                <div class="flex-1 font-mono text-xs bg-muted p-2 rounded border">
-                  <span class="text-muted-foreground truncate block">{{ key.accessKey }}</span>
                 </div>
                 <Button
                     variant="destructive"
@@ -1218,10 +1507,7 @@ onMounted(() => {
                     :disabled="isDeletingKey && deletingKeyId === key.id"
                     class="flex-shrink-0"
                 >
-                  <Trash2 class="h-4 w-4"/>
-                  <span class="hidden sm:inline ml-1">
-                    {{ (isDeletingKey && deletingKeyId === key.id) ? '删除中...' : '删除' }}
-                  </span>
+                  <Trash2 class="h-3 w-3"/>
                 </Button>
               </div>
             </div>
@@ -1297,4 +1583,196 @@ onMounted(() => {
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
+
+<!-- 账户设置对话框 -->
+  <Dialog v-model:open="showAccountSettingsDialog">
+    <DialogContent class="sm:max-w-2xl">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <User class="h-5 w-5"/>
+          账户设置
+        </DialogTitle>
+        <DialogDescription>
+          管理您的账户基本信息和Passkey凭证
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div class="space-y-6 py-4">
+        <!-- 错误提示 -->
+        <div v-if="accountSettingsErrors.length > 0" class="bg-red-50 border border-red-200 rounded-md p-3">
+          <ul class="text-sm text-red-600 space-y-1">
+            <li v-for="error in accountSettingsErrors" :key="error">{{ error }}</li>
+          </ul>
+        </div>
+        
+        <!-- 基本信息设置 -->
+        <div class="space-y-4">
+          <h3 class="text-sm font-medium">基本信息</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <Label class="text-sm">用户名</Label>
+            <div class="md:col-span-2">
+              <div v-if="!isEditingName" class="flex items-center gap-2">
+                <span class="text-sm">{{ user?.name }}</span>
+                <Button variant="ghost" size="sm" @click="startEditingName">
+                  <Edit class="h-3 w-3"/>
+                </Button>
+              </div>
+              <div v-else class="flex items-center gap-2">
+                <Input
+                  v-model="newUserName"
+                  placeholder="请输入用户名"
+                  class="flex-1"
+                />
+                <Button size="sm" @click="saveUserName">保存</Button>
+                <Button variant="outline" size="sm" @click="cancelEditingName">取消</Button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <Label class="text-sm">邮箱</Label>
+            <span class="md:col-span-2 text-sm text-muted-foreground">{{ user?.email }}</span>
+          </div>
+        </div>
+        
+        <Separator />
+        
+        <!-- Passkey管理 -->
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-sm font-medium">Passkey凭证管理</h3>
+            <div class="flex items-center gap-2">
+              <Button 
+                size="sm" 
+                :disabled="isLoadingPasskeys"
+                @click="fetchUserPasskeys"
+              >
+                刷新
+              </Button>
+              <Button 
+                size="sm" 
+                @click="showRegisterForm"
+                :disabled="isLoadingPasskeys || showRegisterPasskeyForm"
+              >
+                <Plus class="h-3 w-3 mr-1"/>
+                添加
+              </Button>
+            </div>
+          </div>
+          
+          <!-- 注册Passkey表单 -->
+          <div v-if="showRegisterPasskeyForm" class="bg-muted/50 p-4 rounded-lg space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-sm font-medium">注册新Passkey</h4>
+              <Button variant="ghost" size="sm" @click="showRegisterPasskeyForm = false">
+                取消
+              </Button>
+            </div>
+            
+            <div class="space-y-3">
+              <div class="space-y-2">
+                <Label for="passkey-description">Passkey描述</Label>
+                <Input
+                  id="passkey-description"
+                  v-model="newPasskeyForm.description"
+                  placeholder="请输入Passkey描述（可选）"
+                  :disabled="isRegisteringPasskey"
+                />
+              </div>
+              
+              <Button 
+                @click="registerPasskey"
+                :disabled="isRegisteringPasskey"
+                class="w-full"
+              >
+                {{ isRegisteringPasskey ? '注册中...' : '注册Passkey' }}
+              </Button>
+            </div>
+          </div>
+          
+          <!-- 加载状态 -->
+          <div v-if="isLoadingPasskeys" class="text-center py-8 text-muted-foreground">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+            加载Passkey列表...
+          </div>
+          
+          <!-- 空状态 -->
+          <div v-else-if="userPasskeys.length === 0" class="text-center py-8 text-muted-foreground">
+            <Key class="h-12 w-12 mx-auto mb-2 opacity-50"/>
+            <p>暂无Passkey凭证</p>
+            <p class="text-xs">您尚未注册任何Passkey凭证</p>
+          </div>
+          
+          <!-- Passkey列表 -->
+          <div v-else class="space-y-2 max-h-[300px] overflow-y-auto">
+            <div 
+              v-for="passkey in userPasskeys" 
+              :key="passkey.id"
+              class="border rounded-lg p-3 bg-card"
+            >
+              <!-- 单行显示 Passkey 信息 -->
+              <div v-if="editingPasskeyId !== passkey.id" class="flex items-center gap-2">
+                <Key class="h-4 w-4 text-primary flex-shrink-0"/>
+                <span v-if="passkey.describe" class="text-sm font-medium min-w-[100px]">
+                  {{ passkey.describe }}
+                </span>
+                <span v-else class="text-sm text-muted-foreground italic min-w-[100px]">
+                  暂无描述
+                </span>
+                <div class="text-xs text-muted-foreground flex-1">
+                  ID: {{ passkey.id.slice(0, 12) }}...
+                </div>
+                <div class="text-xs text-muted-foreground">
+                  最后使用: {{ new Date(passkey.lastUsed).toLocaleDateString() }}
+                </div>
+                <Button variant="ghost" size="sm" @click="startEditingPasskeyDescription(passkey)">
+                  <Edit class="h-3 w-3"/>
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  @click="deletePasskey(passkey.id)"
+                  :disabled="isDeletingPasskey"
+                >
+                  <Trash2 class="h-3 w-3"/>
+                </Button>
+              </div>
+              
+              <!-- 编辑模式 -->
+              <div v-else class="flex items-center gap-2">
+                <Key class="h-4 w-4 text-primary flex-shrink-0"/>
+                <Input
+                  v-model="editingPasskeyDescription"
+                  placeholder="请输入描述"
+                  class="flex-1 max-w-[200px]"
+                />
+                <Button 
+                  size="sm" 
+                  @click="savePasskeyDescription(passkey.id)"
+                  :disabled="isUpdatingPasskey"
+                >
+                  保存
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  @click="cancelEditingPasskeyDescription"
+                  :disabled="isUpdatingPasskey"
+                >
+                  取消
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <DialogFooter>
+        <Button variant="outline" @click="closeAccountSettingsDialog">
+          关闭
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

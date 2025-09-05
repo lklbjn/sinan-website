@@ -101,6 +101,7 @@ export interface EditBookmarkReq {
     id: string
     name?: string
     url?: string
+    icon?:string
     description?: string
     namespaceId?: string
     tags?: string[]
@@ -317,4 +318,31 @@ export interface CollectionSpaceReq {
 
 export interface GetShareUrl {
     spaceId: string
+}
+
+export interface PasskeyRegistrationReq {
+    credential: string
+    describe: string
+}
+
+export interface PasskeyResp {
+    id: string
+    describe?: string
+    createTime: string
+    lastUsed: string
+}
+
+export interface ChangePasskeyReq{
+    id: string
+    describe: string
+}
+
+export interface PasskeyRegistrationReq {
+    credential: string
+    describe: string
+}
+
+export interface Credential {
+  id: string;
+  [key: string]: any;
 }

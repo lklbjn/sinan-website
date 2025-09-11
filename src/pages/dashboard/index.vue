@@ -93,7 +93,7 @@ const breadcrumbTitle = computed(() => {
 
 // 打开文档页面
 const openDocs = () => {
-  window.open('https://sinan.host/docs/', '_blank')
+  window.open('https://docs.sinan.host/', '_blank')
 }
 </script>
 

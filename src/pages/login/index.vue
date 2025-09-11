@@ -7,11 +7,17 @@ import { ref } from 'vue'
 import LoginForm from "@/components/Authentication/LoginForm.vue";
 import RegisterForm from "@/components/Authentication/RegisterForm.vue";
 import DarkModeToggle from '@/components/DarkModeToggle.vue'
+import { Button } from '@/components/ui/button'
+import { BookOpen } from 'lucide-vue-next'
 
 const isLogin = ref(true)
 
 const toggleForm = () => {
   isLogin.value = !isLogin.value
+}
+
+const openDocs = () => {
+  window.open('https://docs.sinan.host/', '_blank')
 }
 </script>
 
@@ -25,7 +31,19 @@ const toggleForm = () => {
           </div>
           Sinan
         </a>
-        <DarkModeToggle />
+        <div class="flex items-center gap-2">
+          <Button
+            @click="openDocs"
+            variant="ghost"
+            size="icon"
+            class="relative"
+            title="查看文档"
+          >
+            <BookOpen class="h-5 w-5"/>
+            <span class="sr-only">查看文档</span>
+          </Button>
+          <DarkModeToggle />
+        </div>
       </div>
       <div class="flex flex-1 items-center justify-center">
         <div class="w-full max-w-xs">

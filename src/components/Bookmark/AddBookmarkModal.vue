@@ -9,6 +9,19 @@
       </AlertDialogHeader>
 
       <form @submit.prevent="handleSubmit" class="grid gap-4 p-4">
+        <!-- URL -->
+        <div class="grid gap-2">
+          <Label for="url">网址 *</Label>
+          <Input
+              id="url"
+              v-model="form.url"
+              type="url"
+              placeholder="https://example.com"
+              required
+              @blur="fetchUrlMetadata"
+          />
+        </div>
+
         <!-- 名称 -->
         <div class="grid gap-2">
           <Label for="name">名称 *</Label>
@@ -20,25 +33,15 @@
           />
         </div>
 
-        <!-- URL -->
-        <div class="grid gap-2">
-          <Label for="url">网址 *</Label>
-          <Input
-              id="url"
-              v-model="form.url"
-              type="url"
-              placeholder="https://example.com"
-              required
-          />
-        </div>
-
         <!-- 描述 -->
         <div class="grid gap-2">
           <Label for="description">描述</Label>
-          <Input
+          <Textarea
               id="description"
               v-model="form.description"
               placeholder="请输入书签描述（可选）"
+              class="max-h-20 resize-none"
+              rows="3"
           />
         </div>
 
@@ -138,6 +141,7 @@ import {
 } from '@/components/ui/select'
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
+import {Textarea} from '@/components/ui/textarea'
 import SpaceSelector from './SpaceSelector.vue'
 import {BookmarkAPI, TagAPI} from '@/services/api'
 import type {AddBookmarkReq, TagResp} from '@/types/api'
@@ -163,6 +167,7 @@ const emit = defineEmits<Emits>()
 // 响应式数据
 const isOpen = ref(props.open)
 const isSubmitting = ref(false)
+const isFetchingMetadata = ref(false)
 const tags = ref<TagResp[]>([])
 const selectedTags = ref<string[]>([])
 const selectedTagToAdd = ref<string>('')
@@ -182,6 +187,8 @@ watch(() => props.open, (newValue) => {
   if (newValue) {
     // 每次打开时重新获取数据
     fetchTags()
+    // 自动获取剪切板内容
+    autoFillFromClipboard()
     // 如果有默认空间ID，设置它
     if (props.defaultSpaceId) {
       form.value.namespaceId = props.defaultSpaceId
@@ -296,6 +303,110 @@ const handleSubmit = async () => {
 // 处理取消
 const handleCancel = () => {
   isOpen.value = false
+}
+
+// 自动从剪切板获取URL
+const autoFillFromClipboard = async () => {
+  // 尝试读取剪切板内容
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const clipboardText = await navigator.clipboard.readText()
+      const trimmedText = clipboardText.trim()
+      
+      // 检查剪切板内容是否是有效的URL
+      if (trimmedText && (trimmedText.startsWith('http://') || trimmedText.startsWith('https://') || trimmedText.startsWith('www.'))) {
+        // 如果是www开头，自动添加https://
+        const url = trimmedText.startsWith('www.') ? `https://${trimmedText}` : trimmedText
+        form.value.url = url
+        console.log('从剪切板获取URL:', url)
+        
+        // 自动获取网页标题
+        setTimeout(() => {
+          fetchUrlMetadata()
+        }, 100) // 延迟一点执行，确保URL已经设置
+      }
+    }
+  } catch (error) {
+    console.log('读取剪切板失败:', error)
+    // 忽略剪切板读取错误，不影响用户体验
+  }
+}
+
+// 获取URL元数据（标题和描述）
+const fetchUrlMetadata = async () => {
+  const url = form.value.url.trim()
+  
+  // 如果URL为空，则不自动获取
+  if (!url) {
+    return
+  }
+  
+  try {
+    isFetchingMetadata.value = true
+    
+    // 验证URL格式
+    const urlObject = new URL(url.startsWith('http') ? url : `https://${url}`)
+    
+    // 发起请求获取页面内容
+    const response = await fetch(urlObject.toString(), {
+      method: 'GET',
+      mode: 'cors',
+    })
+    
+    if (response.ok) {
+      const html = await response.text()
+      
+      // 只有在书签名称为空时才自动获取标题
+      if (!form.value.name.trim()) {
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+        if (titleMatch && titleMatch[1]) {
+          const title = titleMatch[1].trim()
+          if (title) {
+            form.value.name = title
+            console.log('自动获取网页标题:', title)
+          }
+        }
+      }
+      
+      // 只有在描述为空时才自动获取描述
+      if (!form.value.description?.trim()) {
+        // 尝试获取多种description meta标签
+        const descriptionPatterns = [
+          /<meta\s+name=["']description["']\s+content=["']([^"']*)["'][^>]*>/i,
+          /<meta\s+content=["']([^"']*?)["'][^>]*\s+name=["']description["']/i,
+          /<meta\s+property=["']og:description["']\s+content=["']([^"']*?)["'][^>]*>/i,
+          /<meta\s+name=["']twitter:description["']\s+content=["']([^"']*?)["'][^>]*>/i
+        ]
+        
+        for (const pattern of descriptionPatterns) {
+          const descMatch = html.match(pattern)
+          if (descMatch && descMatch[1]) {
+            const description = descMatch[1].trim()
+            if (description && description.length > 10) { // 确保描述有意义
+              form.value.description = description
+              console.log('自动获取网页描述:', description)
+              break
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log('获取网页信息失败:', error)
+    // 如果获取失败，尝试使用URL的域名作为名称（仅在名称为空时）
+    if (!form.value.name.trim()) {
+      try {
+        const urlObject = new URL(url.startsWith('http') ? url : `https://${url}`)
+        const hostname = urlObject.hostname.replace('www.', '')
+        form.value.name = hostname
+        console.log('使用域名作为书签名称:', hostname)
+      } catch (urlError) {
+        console.log('URL解析失败:', urlError)
+      }
+    }
+  } finally {
+    isFetchingMetadata.value = false
+  }
 }
 
 // 监听标签刷新事件

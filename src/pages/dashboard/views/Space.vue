@@ -123,6 +123,13 @@
             <div class="flex items-center gap-2 mb-2">
               <Tag class="h-4 w-4 text-muted-foreground" />
               <span class="text-sm font-medium">标签</span>
+              <button
+                @click.stop="fetchTags"
+                class="p-1 rounded hover:bg-muted transition-colors"
+                title="刷新标签列表"
+              >
+                <RefreshCw class="h-3 w-3 text-muted-foreground" />
+              </button>
             </div>
             <div v-if="availableTags.length === 0" class="text-sm text-muted-foreground">
               暂无可用标签

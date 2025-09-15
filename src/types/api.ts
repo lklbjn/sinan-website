@@ -65,6 +65,7 @@ export interface UserLoginReq {
 export interface BookmarkResp {
     id: string
     spaceId: string
+    namespaceId?: string // 兼容不同的字段名
     name: string
     description: string
     url: string

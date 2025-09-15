@@ -371,13 +371,16 @@ const handleCancel = () => {
 // 监听书签变化，初始化表单
 watch(() => props.bookmark, (newBookmark) => {
   if (newBookmark) {
+    // 处理空间ID - 兼容 spaceId 和 namespaceId 字段
+    const spaceId = newBookmark.spaceId || newBookmark.namespaceId || ''
+    
     formData.value = {
       id: newBookmark.id,
       name: newBookmark.name || '',
       url: newBookmark.url || '',
       description: newBookmark.description || '',
       icon: String(newBookmark.icon || ''),
-      namespaceId: newBookmark.spaceId || '',
+      namespaceId: spaceId,
       tags: []
     }
     // 过滤掉可能的 null 或 undefined 标签ID
@@ -385,7 +388,7 @@ watch(() => props.bookmark, (newBookmark) => {
       ?.map(tag => tag.id)
       ?.filter(id => id != null && id !== '') || []
     // 设置选中的空间
-    selectedSpaceId.value = newBookmark.spaceId || ''
+    selectedSpaceId.value = spaceId
     // 重置图标错误状态
     iconLoadError.value = false
     uploadError.value = ''
@@ -408,6 +411,9 @@ const handleRefreshTags = () => {
 onMounted(() => {
   // 监听标签列表刷新事件
   eventBus.on(EVENTS.REFRESH_TAGS, handleRefreshTags)
+  // 提前获取标签和空间列表
+  fetchTags()
+  fetchSpaces()
 })
 
 onUnmounted(() => {

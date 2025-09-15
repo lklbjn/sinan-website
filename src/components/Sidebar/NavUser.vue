@@ -70,7 +70,15 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import {UserAPI, BookmarkAPI, SpaceAPI, TagAPI, PasskeyAPI} from '@/services/api'
-import type {UserInfo, SpaceResp, TagResp, ChangePasswordReq, UserKeyResp, CreateUserKeyReq, PasskeyResp} from '@/types/api'
+import type {
+  UserInfo,
+  SpaceResp,
+  TagResp,
+  ChangePasswordReq,
+  UserKeyResp,
+  CreateUserKeyReq,
+  PasskeyResp
+} from '@/types/api'
 import Icon from "@/components/Base/Icon.vue"
 import {eventBus, EVENTS} from '@/utils/eventBus'
 import {encryptPasswordWithSalt} from '@/lib/crypto'
@@ -776,7 +784,7 @@ const fetchUserPasskeys = async () => {
     isLoadingPasskeys.value = true
     accountSettingsErrors.value = []
     const response = await PasskeyAPI.getPasskeys()
-    
+
     if (response.code === 0 && response.data) {
       userPasskeys.value = response.data
     } else {
@@ -808,7 +816,7 @@ const saveUserName = async () => {
     accountSettingsErrors.value = ['用户名不能为空']
     return
   }
-  
+
   try {
     // 这里需要调用更新用户名的API
     // 暂时先模拟成功
@@ -840,8 +848,11 @@ const savePasskeyDescription = async (passkeyId: string) => {
   try {
     isUpdatingPasskey.value = true
     accountSettingsErrors.value = []
-    const response = await PasskeyAPI.updatePasskeyDescription({id: passkeyId, describe: editingPasskeyDescription.value})
-    
+    const response = await PasskeyAPI.updatePasskeyDescription({
+      id: passkeyId,
+      describe: editingPasskeyDescription.value
+    })
+
     if (response.code === 0) {
       // 更新本地数据
       const passkey = userPasskeys.value.find(p => p.id === passkeyId)
@@ -867,7 +878,7 @@ const deletePasskey = async (passkeyId: string) => {
     isDeletingPasskey.value = true
     accountSettingsErrors.value = []
     const response = await PasskeyAPI.deletePasskey(passkeyId)
-    
+
     if (response.code === 0) {
       // 从本地列表中移除
       userPasskeys.value = userPasskeys.value.filter(p => p.id !== passkeyId)
@@ -887,33 +898,33 @@ const deletePasskey = async (passkeyId: string) => {
 const base64UrlToArrayBuffer = (base64Url: any) => {
   const padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
   const base64 = (base64Url + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
-  
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
   const rawData = window.atob(base64);
   const buffer = new Uint8Array(rawData.length);
-  
+
   for (let i = 0; i < rawData.length; i++) {
     buffer[i] = rawData.charCodeAt(i);
   }
-  
+
   return buffer.buffer;
 };
 // ArrayBuffer 转 Base64URL
 const arrayBufferToBase64Url = (arrayBuffer: any) => {
   const bytes = new Uint8Array(arrayBuffer);
   let str = '';
-  
+
   for (const byte of bytes) {
     str += String.fromCharCode(byte);
   }
-  
+
   const base64 = window.btoa(str);
-  
+
   return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
 };
 
 // 将 PublicKeyCredential 转换为 JSON
@@ -921,21 +932,21 @@ const publicKeyCredentialToJSON = (credential: unknown): unknown => {
   if (Array.isArray(credential)) {
     return credential.map(publicKeyCredentialToJSON);
   }
-  
+
   if (credential instanceof ArrayBuffer) {
     return arrayBufferToBase64Url(credential);
   }
-  
+
   if (credential && typeof credential === 'object') {
     const obj: Record<string, unknown> = {};
     for (const key in credential) {
       obj[key] = publicKeyCredentialToJSON(
-        (credential as Record<string, unknown>)[key]
+          (credential as Record<string, unknown>)[key]
       );
     }
     return obj;
   }
-  
+
   return credential;
 };
 
@@ -957,7 +968,7 @@ const registerPasskey = async () => {
 
     // 如果返回的是字符串，则解析它
     if (typeof optionsResp.data === 'string') {
-        options = JSON.parse(optionsResp.data);
+      options = JSON.parse(optionsResp.data);
     }
     options = options.publicKey
     console.info('publicKey:', options);
@@ -965,7 +976,7 @@ const registerPasskey = async () => {
     // 转换必要的字段为 ArrayBuffer
     options.user.id = base64UrlToArrayBuffer(options.user.id);
     options.challenge = base64UrlToArrayBuffer(options.challenge);
-    
+
     // 转换 excludeCredentials 中的 id 字段
     if (options.excludeCredentials && Array.isArray(options.excludeCredentials)) {
       options.excludeCredentials = options.excludeCredentials.map((cred: any) => ({
@@ -973,7 +984,7 @@ const registerPasskey = async () => {
         id: base64UrlToArrayBuffer(cred.id)
       }));
     }
-    
+
     // 2. 创建凭证
     const cred = await navigator.credentials.create({
       publicKey: options
@@ -983,18 +994,18 @@ const registerPasskey = async () => {
     const attestationResponse = cred.response as AuthenticatorAttestationResponse;
 
     const credential = {
-        id: cred.id,
-        rawId: arrayBufferToBase64Url(cred.rawId),
-        type: cred.type,
-        authenticatorAttachment: cred?.authenticatorAttachment,
-        clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : [],
-        response: {
-            clientDataJSON: arrayBufferToBase64Url(attestationResponse.clientDataJSON),
-            attestationObject: arrayBufferToBase64Url(attestationResponse.attestationObject),
-            transports: attestationResponse.getTransports ? attestationResponse.getTransports() : []
-        }
+      id: cred.id,
+      rawId: arrayBufferToBase64Url(cred.rawId),
+      type: cred.type,
+      authenticatorAttachment: cred?.authenticatorAttachment,
+      clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : [],
+      response: {
+        clientDataJSON: arrayBufferToBase64Url(attestationResponse.clientDataJSON),
+        attestationObject: arrayBufferToBase64Url(attestationResponse.attestationObject),
+        transports: attestationResponse.getTransports ? attestationResponse.getTransports() : []
+      }
     };
-    
+
     // 3. 验证注册
     const credentialJson = JSON.stringify(publicKeyCredentialToJSON(credential));
     console.info('credentialJson:', credentialJson);
@@ -1005,7 +1016,7 @@ const registerPasskey = async () => {
     const response = await PasskeyAPI.verifyRegistration(requestData);
     if (response.code === 0 && response.data) {
       // 注册成功，添加到列表
-      console.log("注册成功: ",response.data);
+      console.log("注册成功: ", response.data);
       fetchUserPasskeys();
       showRegisterPasskeyForm.value = false
       resetNewPasskeyForm()
@@ -1033,11 +1044,11 @@ const closeAccountSettingsDialog = () => {
 const loadSystemSettings = () => {
   const cookies = document.cookie.split('; ')
   const settingsCookie = cookies.find(cookie => cookie.startsWith('systemSettings='))
-  
+
   if (settingsCookie) {
     try {
       const settings = JSON.parse(decodeURIComponent(settingsCookie.split('=')[1]))
-      systemSettings.value = { ...systemSettings.value, ...settings }
+      systemSettings.value = {...systemSettings.value, ...settings}
     } catch (error) {
       console.error('Failed to parse system settings:', error)
     }
@@ -1051,10 +1062,10 @@ const saveSystemSettings = () => {
   const expires = new Date()
   expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000))
   document.cookie = `systemSettings=${settingsJson}; expires=${expires.toUTCString()}; path=/`
-  
+
   // 触发事件通知其他组件设置已更新
   eventBus.emit('SYSTEM_SETTINGS_UPDATED', systemSettings.value)
-  
+
   closeSystemSettingsDialog()
 }
 
@@ -1093,7 +1104,7 @@ onMounted(() => {
                 {{ user.name.slice(0, 2).toUpperCase() }}
               </AvatarFallback>
             </Avatar>
-            <div class="grid flex-1 text-left text-sm leading-tight">
+            <div class="flex flex-col flex-1 text-left text-sm leading-tight">
               <span class="truncate font-medium">{{ user.name }}</span>
               <span class="truncate text-xs">{{ user.email }}</span>
             </div>
@@ -1114,8 +1125,10 @@ onMounted(() => {
                   {{ user.name.slice(0, 2).toUpperCase() }}
                 </AvatarFallback>
               </Avatar>
-              <span class="font-semibold">{{ user.name }}</span>
-              <span class="text-xs text-muted-foreground">{{ user.email }}</span>
+              <div class="flex flex-col">
+                <span class="font-semibold">{{ user.name }}</span>
+                <span class="text-xs text-muted-foreground">{{ user.email }}</span>
+              </div>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator/>
@@ -1644,7 +1657,7 @@ onMounted(() => {
     </AlertDialogContent>
   </AlertDialog>
 
-<!-- 账户设置对话框 -->
+  <!-- 账户设置对话框 -->
   <Dialog v-model:open="showAccountSettingsDialog">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
@@ -1656,7 +1669,7 @@ onMounted(() => {
           管理您的账户基本信息和Passkey凭证
         </DialogDescription>
       </DialogHeader>
-      
+
       <div class="space-y-6 py-4">
         <!-- 错误提示 -->
         <div v-if="accountSettingsErrors.length > 0" class="bg-red-50 border border-red-200 rounded-md p-3">
@@ -1664,11 +1677,11 @@ onMounted(() => {
             <li v-for="error in accountSettingsErrors" :key="error">{{ error }}</li>
           </ul>
         </div>
-        
+
         <!-- 基本信息设置 -->
         <div class="space-y-4">
           <h3 class="text-sm font-medium">基本信息</h3>
-          
+
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             <Label class="text-sm">用户名</Label>
             <div class="md:col-span-2">
@@ -1680,47 +1693,47 @@ onMounted(() => {
               </div>
               <div v-else class="flex items-center gap-2">
                 <Input
-                  v-model="newUserName"
-                  placeholder="请输入用户名"
-                  class="flex-1"
+                    v-model="newUserName"
+                    placeholder="请输入用户名"
+                    class="flex-1"
                 />
                 <Button size="sm" @click="saveUserName">保存</Button>
                 <Button variant="outline" size="sm" @click="cancelEditingName">取消</Button>
               </div>
             </div>
           </div>
-          
+
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             <Label class="text-sm">邮箱</Label>
             <span class="md:col-span-2 text-sm text-muted-foreground">{{ user?.email }}</span>
           </div>
         </div>
-        
-        <Separator />
-        
+
+        <Separator/>
+
         <!-- Passkey管理 -->
         <div class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-sm font-medium">Passkey凭证管理</h3>
             <div class="flex items-center gap-2">
-              <Button 
-                size="sm" 
-                :disabled="isLoadingPasskeys"
-                @click="fetchUserPasskeys"
+              <Button
+                  size="sm"
+                  :disabled="isLoadingPasskeys"
+                  @click="fetchUserPasskeys"
               >
                 刷新
               </Button>
-              <Button 
-                size="sm" 
-                @click="showRegisterForm"
-                :disabled="isLoadingPasskeys || showRegisterPasskeyForm"
+              <Button
+                  size="sm"
+                  @click="showRegisterForm"
+                  :disabled="isLoadingPasskeys || showRegisterPasskeyForm"
               >
                 <Plus class="h-3 w-3 mr-1"/>
                 添加
               </Button>
             </div>
           </div>
-          
+
           <!-- 注册Passkey表单 -->
           <div v-if="showRegisterPasskeyForm" class="bg-muted/50 p-4 rounded-lg space-y-3">
             <div class="flex items-center justify-between">
@@ -1729,47 +1742,47 @@ onMounted(() => {
                 取消
               </Button>
             </div>
-            
+
             <div class="space-y-3">
               <div class="space-y-2">
                 <Label for="passkey-description">Passkey描述</Label>
                 <Input
-                  id="passkey-description"
-                  v-model="newPasskeyForm.description"
-                  placeholder="请输入Passkey描述（可选）"
-                  :disabled="isRegisteringPasskey"
+                    id="passkey-description"
+                    v-model="newPasskeyForm.description"
+                    placeholder="请输入Passkey描述（可选）"
+                    :disabled="isRegisteringPasskey"
                 />
               </div>
-              
-              <Button 
-                @click="registerPasskey"
-                :disabled="isRegisteringPasskey"
-                class="w-full"
+
+              <Button
+                  @click="registerPasskey"
+                  :disabled="isRegisteringPasskey"
+                  class="w-full"
               >
                 {{ isRegisteringPasskey ? '注册中...' : '注册Passkey' }}
               </Button>
             </div>
           </div>
-          
+
           <!-- 加载状态 -->
           <div v-if="isLoadingPasskeys" class="text-center py-8 text-muted-foreground">
             <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
             加载Passkey列表...
           </div>
-          
+
           <!-- 空状态 -->
           <div v-else-if="userPasskeys.length === 0" class="text-center py-8 text-muted-foreground">
             <Key class="h-12 w-12 mx-auto mb-2 opacity-50"/>
             <p>暂无Passkey凭证</p>
             <p class="text-xs">您尚未注册任何Passkey凭证</p>
           </div>
-          
+
           <!-- Passkey列表 -->
           <div v-else class="space-y-2 max-h-[300px] overflow-y-auto">
-            <div 
-              v-for="passkey in userPasskeys" 
-              :key="passkey.id"
-              class="border rounded-lg p-3 bg-card"
+            <div
+                v-for="passkey in userPasskeys"
+                :key="passkey.id"
+                class="border rounded-lg p-3 bg-card"
             >
               <!-- 单行显示 Passkey 信息 -->
               <div v-if="editingPasskeyId !== passkey.id" class="flex items-center gap-2">
@@ -1790,35 +1803,35 @@ onMounted(() => {
                   <Edit class="h-3 w-3"/>
                 </Button>
                 <Button
-                  variant="destructive"
-                  size="sm"
-                  @click="deletePasskey(passkey.id)"
-                  :disabled="isDeletingPasskey"
+                    variant="destructive"
+                    size="sm"
+                    @click="deletePasskey(passkey.id)"
+                    :disabled="isDeletingPasskey"
                 >
                   <Trash2 class="h-3 w-3"/>
                 </Button>
               </div>
-              
+
               <!-- 编辑模式 -->
               <div v-else class="flex items-center gap-2">
                 <Key class="h-4 w-4 text-primary flex-shrink-0"/>
                 <Input
-                  v-model="editingPasskeyDescription"
-                  placeholder="请输入描述"
-                  class="flex-1 max-w-[200px]"
+                    v-model="editingPasskeyDescription"
+                    placeholder="请输入描述"
+                    class="flex-1 max-w-[200px]"
                 />
-                <Button 
-                  size="sm" 
-                  @click="savePasskeyDescription(passkey.id)"
-                  :disabled="isUpdatingPasskey"
+                <Button
+                    size="sm"
+                    @click="savePasskeyDescription(passkey.id)"
+                    :disabled="isUpdatingPasskey"
                 >
                   保存
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  @click="cancelEditingPasskeyDescription"
-                  :disabled="isUpdatingPasskey"
+                <Button
+                    variant="outline"
+                    size="sm"
+                    @click="cancelEditingPasskeyDescription"
+                    :disabled="isUpdatingPasskey"
                 >
                   取消
                 </Button>
@@ -1827,7 +1840,7 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      
+
       <DialogFooter>
         <Button variant="outline" @click="closeAccountSettingsDialog">
           关闭
@@ -1848,7 +1861,7 @@ onMounted(() => {
           配置系统相关设置
         </DialogDescription>
       </DialogHeader>
-      
+
       <div class="space-y-6 py-4">
         <!-- Favicon图标设置 -->
         <div class="space-y-4">
@@ -1858,7 +1871,7 @@ onMounted(() => {
             <div class="md:col-span-2">
               <Select v-model="systemSettings.faviconSource">
                 <SelectTrigger class="w-full">
-                  <SelectValue placeholder="选择图标来源" />
+                  <SelectValue placeholder="选择图标来源"/>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="google">Google S2</SelectItem>
@@ -1870,7 +1883,7 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      
+
       <DialogFooter>
         <Button variant="outline" @click="closeSystemSettingsDialog">
           取消

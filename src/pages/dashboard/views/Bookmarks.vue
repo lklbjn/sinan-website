@@ -4,12 +4,13 @@
       <div class="bg-card border border-border/60 rounded-xl flex flex-col shadow-sm overflow-hidden">
         <div class="p-5 border-b border-border/40">
           <div class="flex items-center gap-3 mb-4" v-if="bookmarks.length > 0">
-            <span class="text-sm text-muted-foreground font-medium">进度: {{ currentIndex + 1 }} / {{ totalCount }}</span>
+            <span class="text-sm text-muted-foreground font-medium">进度: {{ processedCount }} / {{ totalCount }}</span>
             <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
               <div class="h-full bg-primary transition-all duration-300 ease-in-out" :style="{ width: progressPercentage + '%' }"></div>
             </div>
           </div>
-          <div class="grid grid-cols-3 gap-5 items-end">
+          <div class="grid grid-cols-4 gap-5 items-end">
+            <!-- 书签名称 -->
             <div class="min-w-0">
               <label class="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">书签名称</label>
               <div class="relative">
@@ -32,6 +33,8 @@
                 </div>
               </div>
             </div>
+            
+            <!-- URL -->
             <div class="min-w-0">
               <label class="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">URL</label>
               <a :href="currentBookmark.url" target="_blank" class="flex items-center gap-1.5 px-3 py-2.5 bg-muted/50 border border-border/60 rounded-lg text-primary no-underline text-sm transition-all hover:bg-primary/10 hover:border-primary/50 h-11 box-border whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
@@ -43,6 +46,8 @@
                 </svg>
               </a>
             </div>
+            
+            <!-- 描述 -->
             <div class="min-w-0">
               <label class="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">描述</label>
               <div class="relative">
@@ -66,6 +71,121 @@
                 </div>
               </div>
             </div>
+            
+            <!-- 标签 -->
+            <div class="min-w-0 relative tag-dropdown-container">
+              <label class="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">标签</label>
+              <div 
+                @click="toggleTagDropdown"
+                class="relative flex items-center gap-2 px-3 py-2.5 bg-background border border-border/60 rounded-lg cursor-pointer transition-all hover:border-border/80 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 h-11 box-border"
+              >
+                <!-- 已选标签 -->
+                <div class="flex flex-wrap gap-1 items-center flex-1">
+                  <div 
+                    v-for="tagName in selectedTagNames" 
+                    :key="tagName"
+                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs"
+                    :style="{ 
+                      borderColor: getTagColor(tagName), 
+                      backgroundColor: getTagColor(tagName) + '20',
+                      color: getTagColor(tagName)
+                    }"
+                  >
+                    <div 
+                      class="w-1.5 h-1.5 rounded-full" 
+                      :style="{ backgroundColor: getTagColor(tagName) }"
+                    ></div>
+                    <span>{{ tagName }}</span>
+                    <button 
+                      @click.stop="removeTag(tagName)"
+                      class="ml-0.5 hover:bg-black/10 rounded-sm p-0.5"
+                    >
+                      <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <!-- 占位文字 - 左对齐垂直居中 -->
+                  <span v-if="selectedTagNames.length === 0" class="text-muted-foreground text-sm">
+                    选择标签...
+                  </span>
+                </div>
+                
+                <!-- 下拉箭头 -->
+                <div class="flex-shrink-0">
+                  <svg 
+                    class="w-3 h-3 text-muted-foreground transition-transform"
+                    :class="{ 'rotate-180': isTagDropdownOpen }"
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    stroke-width="2"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
+                </div>
+              </div>
+              
+              <!-- 悬浮下拉列表 -->
+              <div 
+                v-if="isTagDropdownOpen"
+                class="absolute top-full left-0 right-0 mt-1 bg-background border border-border/60 rounded-lg shadow-lg z-50 max-h-64 overflow-hidden"
+              >
+                <!-- 搜索输入框 -->
+                <div class="p-3 border-b border-border/40">
+                  <input
+                    ref="tagSearchInput"
+                    v-model="tagSearchQuery"
+                    @input="filterTags"
+                    placeholder="搜索标签..."
+                    class="w-full px-3 py-2 text-sm border border-border/60 rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                
+                <!-- 标签列表 -->
+                <div class="p-2 max-h-48 overflow-y-auto">
+                  <div class="grid gap-1">
+                    <button
+                      v-for="tag in filteredTags"
+                      :key="tag.id"
+                      @click="toggleTagSelection(tag)"
+                      class="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 rounded-md transition-colors"
+                      :class="{ 'bg-primary/10': selectedTagNames.includes(tag.name) }"
+                    >
+                      <!-- 选择状态指示器 -->
+                      <div class="flex items-center justify-center w-4 h-4">
+                        <div 
+                          v-if="selectedTagNames.includes(tag.name)"
+                          class="w-3 h-3 bg-primary rounded-sm flex items-center justify-center"
+                        >
+                          <svg class="w-2 h-2 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20,6 9,17 4,12"></polyline>
+                          </svg>
+                        </div>
+                        <div 
+                          v-else
+                          class="w-3 h-3 border border-border/60 rounded-sm"
+                        ></div>
+                      </div>
+                      
+                      <!-- 标签颜色和名称 -->
+                      <div 
+                        class="w-3 h-3 rounded-full border border-border/40" 
+                        :style="{ backgroundColor: tag.color }"
+                      ></div>
+                      <span class="text-sm">{{ tag.name }}</span>
+                    </button>
+                    
+                    <!-- 无搜索结果 -->
+                    <div v-if="filteredTags.length === 0" class="px-3 py-4 text-center text-muted-foreground text-sm">
+                      未找到匹配的标签
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -78,6 +198,12 @@
                   <polyline points="23 4 23 10 17 10"></polyline>
                   <polyline points="1 20 1 14 7 14"></polyline>
                   <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+              <button @click="skipBookmark" class="p-1.5 bg-background/80 border border-border/60 rounded-md cursor-pointer transition-all text-muted-foreground hover:bg-primary/10 hover:border-primary/50 hover:text-primary" title="跳过当前书签">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 4l10 8-10 8V4z"></path>
+                  <path d="M19 5v14"></path>
                 </svg>
               </button>
               <button @click="deleteBookmark" class="p-1.5 bg-background/80 border border-border/60 rounded-md cursor-pointer transition-all text-muted-foreground hover:bg-destructive/10 hover:border-destructive/50 hover:text-destructive" title="删除书签">
@@ -144,10 +270,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch, onUnmounted } from 'vue'
 import Icon from '@/components/Base/Icon.vue'
-import { BookmarkAPI, SpaceAPI } from '@/services/api'
-import type { BookmarkResp, SpaceRespSimple } from '@/types/api'
+import { BookmarkAPI, SpaceAPI, TagAPI } from '@/services/api'
+import type { BookmarkResp, SpaceRespSimple, TagResp } from '@/types/api'
 
 const bookmarks = ref<BookmarkResp[]>([])
 const spaces = ref<SpaceRespSimple[]>([])
@@ -161,12 +287,37 @@ const editedDescription = ref('')
 const descriptionInput = ref<HTMLTextAreaElement | null>(null)
 const currentIndex = ref(0)
 const totalCount = ref(0)
+const processedCount = ref(0)
 const iframeKey = ref(0)
+const availableTags = ref<TagResp[]>([])
+const selectedTags = ref<string[]>([])
+const selectedTagNames = ref<string[]>([])
+const isTagDropdownOpen = ref(false)
+const tagSearchQuery = ref('')
+const filteredTags = ref<TagResp[]>([])
+const tagSearchInput = ref<HTMLInputElement | null>(null)
 
 const progressPercentage = computed(() => {
   if (totalCount.value === 0) return 0
-  return ((currentIndex.value + 1) / totalCount.value) * 100
+  return (processedCount.value / totalCount.value) * 100
 })
+
+// 获取标签颜色的辅助函数
+const getTagColor = (tagName: string): string => {
+  const tag = availableTags.value.find(t => t.name === tagName)
+  return tag ? tag.color : '#6b7280'
+}
+
+// 监听当前书签变化，同步标签选择
+watch(currentBookmark, (newBookmark) => {
+  if (newBookmark && newBookmark.tags) {
+    selectedTags.value = newBookmark.tags.map(tag => tag.id)
+    selectedTagNames.value = newBookmark.tags.map(tag => tag.name)
+  } else {
+    selectedTags.value = []
+    selectedTagNames.value = []
+  }
+}, { immediate: true })
 
 const fetchBookmarksWithoutSpace = async () => {
   try {
@@ -174,6 +325,7 @@ const fetchBookmarksWithoutSpace = async () => {
     const response = await BookmarkAPI.noSpaceBookmark()
     bookmarks.value = response.data
     totalCount.value = bookmarks.value.length
+    processedCount.value = 0
     currentIndex.value = 0
     if (bookmarks.value.length > 0) {
       currentBookmark.value = bookmarks.value[0]
@@ -192,6 +344,16 @@ const fetchSpaces = async () => {
     spaces.value = response.data.records || response.data
   } catch (error) {
     console.error('Failed to fetch spaces:', error)
+  }
+}
+
+const fetchTags = async () => {
+  try {
+    const response = await TagAPI.getAllList()
+    availableTags.value = response.data
+    filteredTags.value = response.data // 初始化过滤标签
+  } catch (error) {
+    console.error('Failed to fetch tags:', error)
   }
 }
 
@@ -263,6 +425,80 @@ const cancelEditDescription = () => {
   editedDescription.value = ''
 }
 
+// 处理标签变化
+const handleTagsChange = async (newTagNames: string[]) => {
+  if (!currentBookmark.value) return
+  
+  // 根据标签名称找到对应的标签 ID
+  const newTagIds = newTagNames.map(name => {
+    const existingTag = availableTags.value.find(tag => tag.name === name)
+    return existingTag ? existingTag.id : name // 如果找不到，暂时用名称代替
+  })
+  
+  selectedTags.value = newTagIds
+  
+  try {
+    await BookmarkAPI.update({
+      id: currentBookmark.value.id,
+      tags: newTagIds
+    })
+    
+    // 更新本地书签的标签信息
+    if (currentBookmark.value) {
+      currentBookmark.value.tags = availableTags.value.filter(tag => newTagIds.includes(tag.id))
+    }
+  } catch (error) {
+    console.error('Failed to update bookmark tags:', error)
+  }
+}
+
+// 切换下拉菜单
+const toggleTagDropdown = () => {
+  isTagDropdownOpen.value = !isTagDropdownOpen.value
+  if (isTagDropdownOpen.value) {
+    // 打开时重置搜索和过滤
+    tagSearchQuery.value = ''
+    filteredTags.value = availableTags.value
+    // 延迟聚焦到搜索框
+    nextTick(() => {
+      tagSearchInput.value?.focus()
+    })
+  }
+}
+
+// 过滤标签
+const filterTags = () => {
+  const query = tagSearchQuery.value.toLowerCase().trim()
+  if (!query) {
+    filteredTags.value = availableTags.value
+  } else {
+    filteredTags.value = availableTags.value.filter(tag =>
+      tag.name.toLowerCase().includes(query)
+    )
+  }
+}
+
+// 切换标签选择
+const toggleTagSelection = (tag: TagResp) => {
+  const isSelected = selectedTagNames.value.includes(tag.name)
+  
+  if (isSelected) {
+    // 取消选择
+    selectedTagNames.value = selectedTagNames.value.filter(name => name !== tag.name)
+  } else {
+    // 添加选择
+    selectedTagNames.value.push(tag.name)
+  }
+  
+  handleTagsChange(selectedTagNames.value)
+}
+
+// 移除标签
+const removeTag = (tagName: string) => {
+  selectedTagNames.value = selectedTagNames.value.filter(name => name !== tagName)
+  handleTagsChange(selectedTagNames.value)
+}
+
 const assignToSpace = async (spaceId: string) => {
   if (!currentBookmark.value) return
   
@@ -280,10 +516,15 @@ const assignToSpace = async (spaceId: string) => {
       updateData.description = editedDescription.value.trim()
     }
     
+    // 添加标签信息
+    if (selectedTags.value.length > 0) {
+      updateData.tags = selectedTags.value
+    }
+    
     await BookmarkAPI.update(updateData)
     
     bookmarks.value = bookmarks.value.filter(b => b.id !== currentBookmark.value!.id)
-    totalCount.value = bookmarks.value.length
+    processedCount.value++
     
     if (bookmarks.value.length > 0) {
       // 保持当前索引，如果超出范围则调整到最后一个
@@ -313,6 +554,33 @@ const handleIframeLoad = () => {
   // iframe loaded successfully
 }
 
+const skipBookmark = () => {
+  if (!currentBookmark.value || bookmarks.value.length === 0) return
+  
+  // 将当前书签移动到数组末尾
+  const currentBookmarkData = bookmarks.value[currentIndex.value]
+  bookmarks.value.splice(currentIndex.value, 1)
+  bookmarks.value.push(currentBookmarkData)
+  
+  // 如果没有更多书签在当前位置之前，回到第一个
+  if (currentIndex.value >= bookmarks.value.length) {
+    currentIndex.value = 0
+  }
+  
+  // 更新当前书签为同一位置的新书签（如果存在）
+  if (bookmarks.value.length > 0) {
+    currentBookmark.value = bookmarks.value[currentIndex.value]
+  } else {
+    currentBookmark.value = null
+  }
+  
+  editedName.value = ''
+  isEditingName.value = false
+  editedDescription.value = ''
+  isEditingDescription.value = false
+  iframeKey.value++
+}
+
 const deleteBookmark = async () => {
   if (!currentBookmark.value) return
   
@@ -320,7 +588,7 @@ const deleteBookmark = async () => {
     await BookmarkAPI.delete(currentBookmark.value.id)
     
     bookmarks.value = bookmarks.value.filter(b => b.id !== currentBookmark.value!.id)
-    totalCount.value = bookmarks.value.length
+    processedCount.value++
     
     if (bookmarks.value.length > 0) {
       // 保持当前索引，如果超出范围则调整到最后一个
@@ -346,8 +614,22 @@ const handleIframeError = () => {
   console.warn('Failed to load URL preview for:', currentBookmark.value?.url)
 }
 
+// 点击外部关闭下拉菜单
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.tag-dropdown-container')) {
+    isTagDropdownOpen.value = false
+  }
+}
+
 onMounted(() => {
   fetchBookmarksWithoutSpace()
   fetchSpaces()
+  fetchTags()
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>

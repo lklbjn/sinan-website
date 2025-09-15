@@ -81,23 +81,23 @@
               >
                 <!-- 已选标签 -->
                 <div class="flex flex-wrap gap-1 items-center flex-1">
+                  <!-- 显示第一个标签 -->
                   <div 
-                    v-for="tagName in selectedTagNames" 
-                    :key="tagName"
+                    v-if="selectedTagNames.length > 0"
                     class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs"
                     :style="{ 
-                      borderColor: getTagColor(tagName), 
-                      backgroundColor: getTagColor(tagName) + '20',
-                      color: getTagColor(tagName)
+                      borderColor: getTagColor(selectedTagNames[0]), 
+                      backgroundColor: getTagColor(selectedTagNames[0]) + '20',
+                      color: getTagColor(selectedTagNames[0])
                     }"
                   >
                     <div 
                       class="w-1.5 h-1.5 rounded-full" 
-                      :style="{ backgroundColor: getTagColor(tagName) }"
+                      :style="{ backgroundColor: getTagColor(selectedTagNames[0]) }"
                     ></div>
-                    <span>{{ tagName }}</span>
+                    <span>{{ selectedTagNames[0] }}</span>
                     <button 
-                      @click.stop="removeTag(tagName)"
+                      @click.stop="removeTag(selectedTagNames[0])"
                       class="ml-0.5 hover:bg-black/10 rounded-sm p-0.5"
                     >
                       <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -105,6 +105,14 @@
                         <line x1="6" y1="6" x2="18" y2="18"></line>
                       </svg>
                     </button>
+                  </div>
+                  
+                  <!-- 显示剩余标签数量 -->
+                  <div 
+                    v-if="selectedTagNames.length > 1"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded border text-xs bg-muted/50 border-muted-foreground/30 text-muted-foreground"
+                  >
+                    +{{ selectedTagNames.length - 1 }}
                   </div>
                   
                   <!-- 占位文字 - 左对齐垂直居中 -->

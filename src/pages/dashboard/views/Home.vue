@@ -4,24 +4,36 @@
     <div class="rounded-lg border p-6 relative">
       <div class="flex items-start justify-between mb-2">
         <h1 class="text-3xl font-bold">Welcome back!</h1>
-        <ContextMenu>
-          <ContextMenuTrigger as-child>
-            <button
-                @click="handleRefresh"
-                :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
-                :disabled="isRefreshing"
-                title="刷新书签"
-            >
-              <RefreshCw class="h-5 w-5"/>
-            </button>
-          </ContextMenuTrigger>
-          <ContextMenuContent class="w-48">
-            <ContextMenuItem @click="showFaviconReloadDialog = true" class="flex items-center">
-              <Settings class="mr-2 h-4 w-4"/>
-              <span>重新加载所有图标</span>
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+        <div class="flex items-center gap-1">
+          <ContextMenu>
+            <ContextMenuTrigger as-child>
+              <button
+                  @click="handleRefresh"
+                  :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
+                  :disabled="isRefreshing"
+                  title="刷新书签"
+              >
+                <RefreshCw class="h-5 w-5"/>
+              </button>
+            </ContextMenuTrigger>
+            <ContextMenuContent class="w-48">
+              <ContextMenuItem @click="showFaviconReloadDialog = true" class="flex items-center">
+                <Settings class="mr-2 h-4 w-4"/>
+                <span>重新加载所有图标</span>
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+          
+          <button
+              @click="checkDuplicateBookmarks"
+              class="p-2 rounded-md hover:bg-muted transition-colors"
+              title="检查重复书签"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+            </svg>
+          </button>
+        </div>
       </div>
       <p class="text-muted-foreground mb-6">你从哪个应用开始以下是你最常用的应用</p>
 
@@ -245,6 +257,82 @@
       </DialogFooter>
     </DialogContent>
   </Dialog>
+
+  <!-- 重复书签检查模态框 -->
+  <div v-if="showDuplicateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-background rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+      <div class="p-6 border-b border-border/40 flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-foreground">重复书签检查</h3>
+        <button @click="closeDuplicateModal" class="p-1.5 hover:bg-muted rounded-md transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-6">
+        <div v-if="duplicateLoading" class="flex items-center justify-center py-8">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span class="ml-3 text-muted-foreground">正在检查重复书签...</span>
+        </div>
+        
+        <div v-else-if="duplicateBookmarks.size === 0" class="text-center py-8 text-muted-foreground">
+          未发现重复书签
+        </div>
+        
+        <div v-else class="space-y-6">
+          <div v-for="[domain, bookmarks] in duplicateBookmarks" :key="domain" class="border border-border/40 rounded-lg overflow-hidden">
+            <div class="bg-muted/30 px-4 py-3 border-b border-border/40">
+              <h4 class="font-medium text-foreground">{{ domain }}</h4>
+              <p class="text-sm text-muted-foreground mt-1">发现 {{ bookmarks.length }} 个重复书签</p>
+            </div>
+            
+            <div class="divide-y divide-border/40">
+              <div v-for="bookmark in bookmarks" :key="bookmark.id" class="p-4 flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                  <h5 class="font-medium text-foreground truncate">{{ bookmark.name }}</h5>
+                  <p class="text-sm text-muted-foreground truncate mt-1">{{ bookmark.url }}</p>
+                  <p v-if="bookmark.description" class="text-sm text-muted-foreground mt-1 line-clamp-2">{{ bookmark.description }}</p>
+                </div>
+                
+                <div class="flex items-center gap-2 ml-4">
+                  <a :href="bookmark.url" target="_blank" class="p-2 hover:bg-muted rounded-md transition-colors" title="打开书签">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </a>
+                  
+                  <button @click="ignoreDuplicateBookmark(bookmark.id)" class="p-2 hover:bg-primary/10 text-primary rounded-md transition-colors" title="忽略重复检查">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="15" y1="9" x2="9" y2="15"></line>
+                      <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                  </button>
+                  
+                  <button @click="deleteDuplicateBookmark(bookmark.id)" class="p-2 hover:bg-destructive/10 text-destructive rounded-md transition-colors" title="删除书签">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-6 border-t border-border/40 flex justify-end">
+        <button @click="closeDuplicateModal" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+          关闭
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -305,6 +393,11 @@ const totalPages = ref(0)
 const showFaviconReloadDialog = ref(false)
 const forceReloadFavicon = ref(false)
 const isReloadingFavicons = ref(false)
+
+// 重复书签检查相关状态
+const duplicateBookmarks = ref<Map<string, any[]>>(new Map())
+const showDuplicateModal = ref(false)
+const duplicateLoading = ref(false)
 
 // 计算属性 - 显示的书签（搜索时显示搜索结果，否则显示常用书签）
 const filteredBookmarks = computed(() => {
@@ -614,6 +707,69 @@ const handleTagToggle = async (bookmark: BookmarkResp, tagId: string, event: Eve
   }
 }
 
+// 检查重复书签
+const checkDuplicateBookmarks = async () => {
+  try {
+    duplicateLoading.value = true
+    const response = await BookmarkAPI.checkDuplicate()
+    // 将后端返回的Map转换为前端可用的格式
+    if (response.data) {
+      duplicateBookmarks.value = new Map(Object.entries(response.data))
+      showDuplicateModal.value = true
+    }
+  } catch (error) {
+    console.error('Failed to check duplicate bookmarks:', error)
+    alert('检查重复书签失败，请重试')
+  } finally {
+    duplicateLoading.value = false
+  }
+}
+
+// 忽略重复书签检查
+const ignoreDuplicateBookmark = async (bookmarkId: string) => {
+  try {
+    await BookmarkAPI.ignoreDuplicateCheck(bookmarkId)
+    // 从重复书签列表中移除
+    for (const [domain, bookmarks] of duplicateBookmarks.value) {
+      const filteredBookmarks = bookmarks.filter(b => b.id !== bookmarkId)
+      if (filteredBookmarks.length <= 1) {
+        duplicateBookmarks.value.delete(domain)
+      } else {
+        duplicateBookmarks.value.set(domain, filteredBookmarks)
+      }
+    }
+    duplicateBookmarks.value = new Map(duplicateBookmarks.value)
+  } catch (error) {
+    console.error('Failed to ignore duplicate bookmark:', error)
+    alert('忽略重复检查失败')
+  }
+}
+
+// 删除重复书签
+const deleteDuplicateBookmark = async (bookmarkId: string) => {
+  try {
+    await BookmarkAPI.delete(bookmarkId)
+    // 从重复书签列表中移除
+    for (const [domain, bookmarks] of duplicateBookmarks.value) {
+      const filteredBookmarks = bookmarks.filter(b => b.id !== bookmarkId)
+      if (filteredBookmarks.length <= 1) {
+        duplicateBookmarks.value.delete(domain)
+      } else {
+        duplicateBookmarks.value.set(domain, filteredBookmarks)
+      }
+    }
+    duplicateBookmarks.value = new Map(duplicateBookmarks.value)
+  } catch (error) {
+    console.error('Failed to delete duplicate bookmark:', error)
+    alert('删除书签失败')
+  }
+}
+
+// 关闭重复书签模态框
+const closeDuplicateModal = () => {
+  showDuplicateModal.value = false
+  duplicateBookmarks.value = new Map()
+}
 
 // 页面加载时获取数据
 onMounted(() => {

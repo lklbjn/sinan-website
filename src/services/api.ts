@@ -239,9 +239,19 @@ export class BookmarkAPI {
     
     static reloadAll(force: boolean = false) {
         return http.patch<string>('/favicon/reload', null, {
-            params: { force },
-            // headers: { 'X-Access-Key': accessKey }
+            params: { force }
         })
+    }
+
+    // 检查重复书签
+    static checkDuplicate(level?: number) {
+        return http.get<Record<string, BookmarkResp[]>>('/bookmark/duplicate/check', {
+            params: { level }
+        })
+    }
+
+    static ignoreDuplicateCheck(id: string) {
+        return http.patch<string>(`/bookmark/duplicate/check/${id}/ignore`)
     }
 }
 

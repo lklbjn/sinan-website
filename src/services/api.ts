@@ -236,6 +236,13 @@ export class BookmarkAPI {
     static importChrome(file: File) {
         return http.upload<ImportBookmarkResp>('/bookmark/import/chrome', file)
     }
+    
+    static reloadAll(force: boolean = false) {
+        return http.patch<string>('/favicon/reload', null, {
+            params: { force },
+            // headers: { 'X-Access-Key': accessKey }
+        })
+    }
 }
 
 // 空间相关API

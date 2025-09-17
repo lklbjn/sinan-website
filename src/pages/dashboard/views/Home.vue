@@ -4,14 +4,24 @@
     <div class="rounded-lg border p-6 relative">
       <div class="flex items-start justify-between mb-2">
         <h1 class="text-3xl font-bold">Welcome back!</h1>
-        <button
-            @click="handleRefresh"
-            :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
-            :disabled="isRefreshing"
-            title="刷新书签"
-        >
-          <RefreshCw class="h-5 w-5"/>
-        </button>
+        <ContextMenu>
+          <ContextMenuTrigger as-child>
+            <button
+                @click="handleRefresh"
+                :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
+                :disabled="isRefreshing"
+                title="刷新书签"
+            >
+              <RefreshCw class="h-5 w-5"/>
+            </button>
+          </ContextMenuTrigger>
+          <ContextMenuContent class="w-48">
+            <ContextMenuItem @click="showFaviconReloadDialog = true" class="flex items-center">
+              <Settings class="mr-2 h-4 w-4"/>
+              <span>重新加载所有图标</span>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       </div>
       <p class="text-muted-foreground mb-6">你从哪个应用开始以下是你最常用的应用</p>
 
@@ -201,6 +211,40 @@
       </AlertDialogContent>
     </AlertDialog>
   </div>
+
+  <!-- 重新加载图标确认对话框 -->
+  <Dialog v-model:open="showFaviconReloadDialog">
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>重新加载书签图标</DialogTitle>
+        <DialogDescription>
+          确定要重新加载所有书签的图标吗？您可以选择是否强制刷新图标。
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div class="flex items-center space-x-2 py-4">
+        <input
+          id="force-reload"
+          type="checkbox"
+          v-model="forceReloadFavicon"
+          class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+        />
+        <label for="force-reload" class="text-sm font-medium leading-none">
+          强制刷新（重新下载所有图标）
+        </label>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" @click="showFaviconReloadDialog = false">
+          取消
+        </Button>
+        <Button @click="reloadAllFavicons" :disabled="isReloadingFavicons">
+          <RefreshCw class="h-4 w-4 mr-2 animate-spin" v-if="isReloadingFavicons" />
+          {{ isReloadingFavicons ? '正在重新加载...' : '确认重新加载' }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
@@ -227,7 +271,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {Edit, Trash2, Star, RefreshCw, Tag, Check} from 'lucide-vue-next'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {Button} from '@/components/ui/button'
+import {Edit, Trash2, Star, RefreshCw, Tag, Check, Settings} from 'lucide-vue-next'
 
 // 响应式数据
 const mostVisitedBookmarks = ref<BookmarkResp[]>([])
@@ -247,6 +300,11 @@ const editingBookmark = ref<BookmarkResp | null>(null)
 const pageSize = ref(40) // 显示更多书签以便搜索
 const totalCount = ref(0)
 const totalPages = ref(0)
+
+// 重新加载图标相关状态
+const showFaviconReloadDialog = ref(false)
+const forceReloadFavicon = ref(false)
+const isReloadingFavicons = ref(false)
 
 // 计算属性 - 显示的书签（搜索时显示搜索结果，否则显示常用书签）
 const filteredBookmarks = computed(() => {
@@ -464,6 +522,29 @@ const handleRefresh = async () => {
     ])
   } finally {
     isRefreshing.value = false
+  }
+}
+
+// 重新加载所有书签图标
+const reloadAllFavicons = async () => {
+  try {
+    isReloadingFavicons.value = true
+    const response = await BookmarkAPI.reloadAll(forceReloadFavicon.value)
+    
+    if (response.code === 0) {
+      // 重新加载成功，可以给用户提示
+      console.log('书签图标重新加载成功')
+      // 这里可以添加成功提示
+    } else {
+      console.error('重新加载书签图标失败:', response.message)
+      // 这里可以添加错误提示
+    }
+  } catch (error) {
+    console.error('重新加载书签图标时出错:', error)
+  } finally {
+    isReloadingFavicons.value = false
+    showFaviconReloadDialog.value = false
+    forceReloadFavicon.value = false
   }
 }
 

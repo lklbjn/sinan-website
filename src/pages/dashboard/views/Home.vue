@@ -577,8 +577,9 @@ const deleteBookmark = async () => {
   try {
     const response = await BookmarkAPI.delete(deletingBookmarkId.value) as any
     if (response?.flag) {
-      // 从列表中移除已删除的书签
+      // 从所有列表中移除已删除的书签
       mostVisitedBookmarks.value = mostVisitedBookmarks.value.filter(b => b.id !== deletingBookmarkId.value)
+      searchResults.value = searchResults.value.filter(b => b.id !== deletingBookmarkId.value)
     }
   } catch (error) {
     console.error('Failed to delete bookmark:', error)

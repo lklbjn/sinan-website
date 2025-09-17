@@ -246,6 +246,23 @@ const fetchSpaces = async () => {
   try {
     const response = await SpaceAPI.getAllList()
     availableSpaces.value = response.data.records || response.data
+    
+    // 检查空间列表是否包含当前选中的空间ID
+    if (props.bookmark && availableSpaces.value.length > 0) {
+      const spaceId = props.bookmark.spaceId || props.bookmark.namespaceId || ''
+      
+      // 检查空间ID是否在可用空间列表中
+      const spaceExists = availableSpaces.value.some(space => space.id === spaceId)
+      
+      if (spaceExists) {
+        selectedSpaceId.value = spaceId
+      } else {
+        selectedSpaceId.value = ''
+      }
+    } else if (props.bookmark) {
+      const spaceId = props.bookmark.spaceId || props.bookmark.namespaceId || ''
+      selectedSpaceId.value = spaceId
+    }
   } catch (error) {
     console.error('Failed to fetch spaces:', error)
   }
@@ -340,11 +357,7 @@ const handleSave = async () => {
       tags: validTagIds.length > 0 ? validTagIds : undefined
     }
     
-    console.log('Update data:', updateData)
-    
     const response = await BookmarkAPI.update(updateData) as any
-    
-    console.log('Update response:', response)
     
     // 检查多种可能的成功响应格式
     if (response?.flag || response?.code === 0 || response?.data) {
@@ -396,10 +409,10 @@ watch(() => props.bookmark, (newBookmark) => {
 }, { immediate: true })
 
 // 组件挂载时获取标签和空间
-watch(isOpen, (newValue) => {
+watch(isOpen, async (newValue) => {
   if (newValue) {
-    fetchTags()
-    fetchSpaces()
+    await fetchTags()
+    await fetchSpaces()
   }
 })
 
@@ -411,9 +424,6 @@ const handleRefreshTags = () => {
 onMounted(() => {
   // 监听标签列表刷新事件
   eventBus.on(EVENTS.REFRESH_TAGS, handleRefreshTags)
-  // 提前获取标签和空间列表
-  fetchTags()
-  fetchSpaces()
 })
 
 onUnmounted(() => {

@@ -291,9 +291,51 @@
             <div class="divide-y divide-border/40">
               <div v-for="bookmark in bookmarks" :key="bookmark.id" class="p-4 flex items-center justify-between">
                 <div class="flex-1 min-w-0">
-                  <h5 class="font-medium text-foreground truncate">{{ bookmark.name }}</h5>
-                  <p class="text-sm text-muted-foreground truncate mt-1">{{ bookmark.url }}</p>
+                  <!-- 编辑状态下的名称输入框 -->
+                  <div v-if="editingBookmarks[bookmark.id]" class="mb-2">
+                    <input
+                      v-model="editingBookmarks[bookmark.id].name"
+                      type="text"
+                      placeholder="书签名称"
+                      class="w-full px-3 py-1 text-sm border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  <!-- 正常状态下的名称显示 -->
+                  <h5 v-else class="font-medium text-foreground truncate">{{ bookmark.name }}</h5>
+                  
+                  <!-- 编辑状态下的URL输入框 -->
+                  <div v-if="editingBookmarks[bookmark.id]" class="mb-2">
+                    <input
+                      v-model="editingBookmarks[bookmark.id].url"
+                      type="text"
+                      placeholder="书签URL"
+                      class="w-full px-3 py-1 text-sm border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  <!-- 正常状态下的URL显示 -->
+                  <p v-else class="text-sm text-muted-foreground truncate mt-1">{{ bookmark.url }}</p>
+                  
                   <p v-if="bookmark.description" class="text-sm text-muted-foreground mt-1 line-clamp-2">{{ bookmark.description }}</p>
+                  
+                  <!-- 标签展示 -->
+                  <div v-if="bookmark.tags && bookmark.tags.length > 0" class="flex flex-wrap gap-1 mt-2">
+                    <span
+                      v-for="tag in bookmark.tags"
+                      :key="tag.id"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-colors"
+                      :style="{ 
+                        backgroundColor: tag.color ? `${tag.color}20` : 'rgba(82, 82, 91, 0.1)',
+                        borderColor: tag.color ? `${tag.color}40` : 'rgba(82, 82, 91, 0.2)',
+                        color: tag.color ? tag.color : '#52525b'
+                      }"
+                    >
+                      <div
+                        class="w-2 h-2 rounded-full"
+                        :style="{ backgroundColor: tag.color || '#52525b' }"
+                      />
+                      {{ tag.name }}
+                    </span>
+                  </div>
                 </div>
                 
                 <div class="flex items-center gap-2 ml-4">
@@ -310,6 +352,31 @@
                       <circle cx="12" cy="12" r="10"></circle>
                       <line x1="15" y1="9" x2="9" y2="15"></line>
                       <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                  </button>
+                  
+                  <button 
+                    v-if="!editingBookmarks[bookmark.id]"
+                    @click="startEditing(bookmark)" 
+                    class="p-2 hover:bg-blue-500/10 text-blue-500 rounded-md transition-colors" 
+                    title="修改书签"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+                  
+                  <button 
+                    v-if="editingBookmarks[bookmark.id]"
+                    @click="saveBookmarkEdit(bookmark.id)" 
+                    class="p-2 hover:bg-green-500/10 text-green-500 rounded-md transition-colors" 
+                    title="保存修改"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                      <polyline points="7 3 7 8 15 8"></polyline>
                     </svg>
                   </button>
                   
@@ -398,6 +465,9 @@ const isReloadingFavicons = ref(false)
 const duplicateBookmarks = ref<Map<string, any[]>>(new Map())
 const showDuplicateModal = ref(false)
 const duplicateLoading = ref(false)
+
+// 编辑书签相关状态
+const editingBookmarks = ref<Record<string, { name: string; url: string }>>({})
 
 // 计算属性 - 显示的书签（搜索时显示搜索结果，否则显示常用书签）
 const filteredBookmarks = computed(() => {
@@ -766,10 +836,56 @@ const deleteDuplicateBookmark = async (bookmarkId: string) => {
   }
 }
 
+// 开始编辑书签
+const startEditing = (bookmark: any) => {
+  editingBookmarks.value[bookmark.id] = {
+    name: bookmark.name,
+    url: bookmark.url
+  }
+}
+
+// 保存书签编辑
+const saveBookmarkEdit = async (bookmarkId: string) => {
+  try {
+    const editedBookmark = editingBookmarks.value[bookmarkId]
+    if (!editedBookmark || !editedBookmark.name.trim() || !editedBookmark.url.trim()) {
+      alert('书签名称和URL不能为空')
+      return
+    }
+
+    const response = await BookmarkAPI.update({
+      id: bookmarkId,
+      name: editedBookmark.name,
+      url: editedBookmark.url
+    }) as any
+
+    if (response?.flag || response?.code === 0) {
+      // 更新本地数据
+      for (const [domain, bookmarks] of duplicateBookmarks.value) {
+        const updatedBookmarks = bookmarks.map(b => {
+          if (b.id === bookmarkId) {
+            return { ...b, name: editedBookmark.name, url: editedBookmark.url }
+          }
+          return b
+        })
+        duplicateBookmarks.value.set(domain, updatedBookmarks)
+      }
+      // 退出编辑状态
+      delete editingBookmarks.value[bookmarkId]
+    } else {
+      alert('保存失败：' + (response?.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('Failed to save bookmark edit:', error)
+    alert('保存失败，请重试')
+  }
+}
+
 // 关闭重复书签模态框
 const closeDuplicateModal = () => {
   showDuplicateModal.value = false
   duplicateBookmarks.value = new Map()
+  editingBookmarks.value = {}
 }
 
 // 页面加载时获取数据

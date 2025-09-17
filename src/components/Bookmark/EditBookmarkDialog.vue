@@ -114,7 +114,7 @@
         </div>
         <div class="space-y-2">
           <Label>标签</Label>
-          <div class="max-h-32 overflow-y-auto border rounded-md p-2">
+          <div class="max-h-32 overflow-y-auto border rounded-md p-2 space-tags-container">
             <div class="flex flex-wrap gap-2">
               <div
                 v-for="tag in availableTags"
@@ -436,41 +436,3 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-/* 自定义滚动条样式 */
-.dialog-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.dialog-content::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 3px;
-}
-
-.dialog-content::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
-}
-
-.dialog-content::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-
-.space-tags-container::-webkit-scrollbar {
-  width: 4px;
-}
-
-.space-tags-container::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 2px;
-}
-
-.space-tags-container::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
-  border-radius: 2px;
-}
-
-.space-tags-container::-webkit-scrollbar-thumb:hover {
-  background: #d1d5db;
-}
-</style>

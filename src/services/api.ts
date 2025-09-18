@@ -244,9 +244,9 @@ export class BookmarkAPI {
     }
 
     // 检查重复书签
-    static checkDuplicate(level?: number) {
+    static checkDuplicate(params?: { level?: number; ignoreDuplicate?: boolean; stronglyCorrelated?: boolean }) {
         return http.get<Record<string, BookmarkResp[]>>('/bookmark/duplicate/check', {
-            params: { level }
+            params
         })
     }
 

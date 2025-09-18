@@ -270,6 +270,117 @@
           </svg>
         </button>
       </div>
+
+      <!-- 查询参数控件 - 现代化设计 -->
+      <div class="px-6 py-4 border-b border-border/40 bg-muted/10">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+            <!-- 域名层级选择器 -->
+            <div class="flex flex-col gap-1 min-w-[120px]">
+              <label class="text-sm font-medium text-foreground flex items-center gap-1">
+                域名层级
+                <span class="text-muted-foreground text-xs" title="检查重复时基于的域名层级">ⓘ</span>
+              </label>
+              <select 
+                v-model="duplicateCheckLevel" 
+                :disabled="stronglyCorrelated"
+                :class="[
+                  'px-3 py-2 text-sm border rounded-md transition-all duration-200',
+                  stronglyCorrelated 
+                    ? 'border-muted bg-muted/50 text-muted-foreground cursor-not-allowed' 
+                    : 'border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary'
+                ]"
+              >
+                <option :value="2">二级域名 (2)</option>
+                <option :value="3">三级域名 (3)</option>
+                <option :value="4">四级域名 (4)</option>
+              </select>
+            </div>
+
+            <!-- 开关控件容器 -->
+            <div class="flex items-center gap-6">
+              <!-- 包含已忽略重复项开关 -->
+              <div class="flex items-center gap-2">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    v-model="ignoreDuplicate"
+                    :disabled="stronglyCorrelated"
+                    class="sr-only peer"
+                  >
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer transition-colors duration-200"
+                    :class="{
+                      'bg-muted/50 cursor-not-allowed': stronglyCorrelated,
+                      'bg-primary': !stronglyCorrelated && ignoreDuplicate,
+                      'bg-gray-300': !stronglyCorrelated && !ignoreDuplicate
+                    }"
+                  >
+                    <div class="absolute top-[2px] left-[2px] bg-white rounded-full h-5 w-5 transition-all duration-200"
+                      :class="{ 'translate-x-full': ignoreDuplicate && !stronglyCorrelated }"
+                    ></div>
+                  </div>
+                </label>
+                <div class="flex flex-col">
+                  <span class="text-sm font-medium text-foreground">包含已忽略项</span>
+                  <span class="text-xs text-muted-foreground" :class="{ 'opacity-50': stronglyCorrelated }">
+                    {{ ignoreDuplicate ? '显示所有重复项' : '隐藏已忽略项' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 仅强相关重复项开关 -->
+              <div class="flex items-center gap-2">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    v-model="stronglyCorrelated"
+                    class="sr-only peer"
+                  >
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer transition-colors duration-200"
+                    :class="{
+                      'bg-blue-600': stronglyCorrelated,
+                      'bg-gray-300': !stronglyCorrelated
+                    }"
+                  >
+                    <div class="absolute top-[2px] left-[2px] bg-white rounded-full h-5 w-5 transition-all duration-200"
+                      :class="{ 'translate-x-full': stronglyCorrelated }"
+                    ></div>
+                  </div>
+                </label>
+                <div class="flex flex-col">
+                  <span class="text-sm font-medium text-foreground">仅强相关</span>
+                  <span class="text-xs text-muted-foreground">
+                    {{ stronglyCorrelated ? '仅完全匹配URL' : '包含相似URL' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 重新检查按钮 -->
+          <button
+            @click="checkDuplicateBookmarks"
+            :disabled="duplicateLoading"
+            class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md min-w-[100px]"
+          >
+            <span v-if="duplicateLoading" class="flex items-center gap-2">
+              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              检查中...
+            </span>
+            <span v-else>重新检查</span>
+          </button>
+        </div>
+
+        <!-- 状态提示 -->
+        <div v-if="stronglyCorrelated" class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+          <p class="text-xs text-blue-800 flex items-center gap-1">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+            </svg>
+            强相关模式已启用：仅检查完全相同的URL，忽略域名层级和忽略状态设置
+          </p>
+        </div>
+      </div>
       
       <div class="flex-1 overflow-y-auto p-6">
         <div v-if="duplicateLoading" class="flex items-center justify-center py-8">
@@ -289,7 +400,8 @@
             </div>
             
             <div class="divide-y divide-border/40">
-              <div v-for="bookmark in bookmarks" :key="bookmark.id" class="p-4 flex items-center justify-between">
+              <div v-for="bookmark in bookmarks" :key="bookmark.id" 
+                   :class="['p-4 flex items-center justify-between', bookmark.ignoreDuplicate && 'bg-muted/30']">
                 <div class="flex-1 min-w-0">
                   <!-- 编辑状态下的名称输入框 -->
                   <div v-if="editingBookmarks[bookmark.id]" class="mb-2">
@@ -347,7 +459,17 @@
                     </svg>
                   </a>
                   
-                  <button @click="ignoreDuplicateBookmark(bookmark.id)" class="p-2 hover:bg-primary/10 text-primary rounded-md transition-colors" title="忽略重复检查">
+                  <button 
+                    @click="ignoreDuplicateBookmark(bookmark.id)" 
+                    :disabled="bookmark.ignoreDuplicate"
+                    :class="[
+                      'p-2 rounded-md transition-colors',
+                      bookmark.ignoreDuplicate 
+                        ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' 
+                        : 'hover:bg-primary/10 text-primary'
+                    ]" 
+                    :title="bookmark.ignoreDuplicate ? '已忽略重复检查' : '忽略重复检查'"
+                  >
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="12" cy="12" r="10"></circle>
                       <line x1="15" y1="9" x2="9" y2="15"></line>
@@ -465,6 +587,9 @@ const isReloadingFavicons = ref(false)
 const duplicateBookmarks = ref<Map<string, any[]>>(new Map())
 const showDuplicateModal = ref(false)
 const duplicateLoading = ref(false)
+const duplicateCheckLevel = ref(3)
+const ignoreDuplicate = ref(false)
+const stronglyCorrelated = ref(true)
 
 // 编辑书签相关状态
 const editingBookmarks = ref<Record<string, { name: string; url: string }>>({})
@@ -797,7 +922,12 @@ const handleTagToggle = async (bookmark: BookmarkResp, tagId: string, event: Eve
 const checkDuplicateBookmarks = async () => {
   try {
     duplicateLoading.value = true
-    const response = await BookmarkAPI.checkDuplicate()
+    const params = {
+      level: duplicateCheckLevel.value,
+      ignoreDuplicate: ignoreDuplicate.value,
+      stronglyCorrelated: stronglyCorrelated.value
+    }
+    const response = await BookmarkAPI.checkDuplicate(params)
     // 将后端返回的Map转换为前端可用的格式
     if (response.data) {
       duplicateBookmarks.value = new Map(Object.entries(response.data))

@@ -72,6 +72,7 @@ export interface BookmarkResp {
     icon: number | string
     num: number
     star: boolean
+    ignoreDuplicate?: boolean
     tags?: TagResp[]
 }
 

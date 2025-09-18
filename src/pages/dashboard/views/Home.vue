@@ -601,8 +601,23 @@ const handleBookmarkAdded = () => {
 }
 
 // 处理书签更新成功
-const handleBookmarkUpdated = () => {
-  // 重新获取最常访问的书签以显示更新后的书签
+const handleBookmarkUpdated = (updatedBookmark: BookmarkResp) => {
+  // 立即更新本地数据
+  if (updatedBookmark) {
+    // 更新最常访问列表中的书签
+    const index = mostVisitedBookmarks.value.findIndex(b => b.id === updatedBookmark.id)
+    if (index !== -1) {
+      mostVisitedBookmarks.value[index] = { ...mostVisitedBookmarks.value[index], ...updatedBookmark }
+    }
+    
+    // 更新搜索结果列表中的书签
+    const searchIndex = searchResults.value.findIndex(b => b.id === updatedBookmark.id)
+    if (searchIndex !== -1) {
+      searchResults.value[searchIndex] = { ...searchResults.value[searchIndex], ...updatedBookmark }
+    }
+  }
+  
+  // 可选：重新获取数据以确保完全同步
   fetchMostVisited()
   editingBookmark.value = null
 }

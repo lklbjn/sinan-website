@@ -177,7 +177,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'success': []
+  'success': [bookmark: BookmarkResp]
 }>()
 
 const isOpen = computed({
@@ -365,7 +365,18 @@ const handleSave = async () => {
     
     // 检查多种可能的成功响应格式
     if (response?.flag || response?.code === 0 || response?.data) {
-      emit('success')
+      // 构建更新后的书签对象传递给父组件
+      const updatedBookmark: BookmarkResp = {
+        ...props.bookmark!,
+        name: formData.value.name,
+        url: formData.value.url,
+        description: formData.value.description || '',
+        icon: formData.value.icon || '',
+        spaceId: selectedSpaceId.value || '',
+        namespaceId: selectedSpaceId.value || undefined,
+        tags: availableTags.value.filter(tag => selectedTagIds.value.includes(tag.id))
+      }
+      emit('success', updatedBookmark)
       isOpen.value = false
     } else {
       console.error('Failed to update bookmark:', response)

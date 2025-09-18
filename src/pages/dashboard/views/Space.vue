@@ -501,7 +501,17 @@ const handleBookmarkAdded = () => {
 }
 
 // 处理书签更新成功
-const handleBookmarkUpdated = () => {
+const handleBookmarkUpdated = (updatedBookmark: BookmarkResp) => {
+  // 立即更新本地数据
+  if (updatedBookmark) {
+    // 更新书签列表中的书签
+    const index = bookmarks.value.findIndex(b => b.id === updatedBookmark.id)
+    if (index !== -1) {
+      bookmarks.value[index] = { ...bookmarks.value[index], ...updatedBookmark }
+    }
+  }
+  
+  // 重新获取数据以确保完全同步
   fetchBookmarks()
   editingBookmark.value = null
 }

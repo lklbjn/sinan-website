@@ -47,134 +47,20 @@
     </div>
 
     <!-- 书签网格 -->
-    <div v-else-if="filteredBookmarks.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-      <ContextMenu v-for="bookmark in filteredBookmarks" :key="bookmark.id">
-        <ContextMenuTrigger as-child>
-          <div
-            @click="openBookmark(bookmark.url, bookmark.id)"
-            :class="[
-              'flex items-center gap-3 p-3 rounded-lg border bg-card text-card-foreground transition-all cursor-pointer',
-              bookmark.star 
-                ? 'shadow-[0_0_15px_rgba(251,191,36,0.2)] hover:shadow-[0_0_20px_rgba(251,191,36,0.3)] border-amber-200/50' 
-                : 'shadow-sm hover:shadow-md'
-            ]"
-          >
-            <div class="flex h-8 w-8 items-center justify-center rounded-md bg-muted overflow-hidden">
-              <!-- 优先使用存储的图标（HTTP URL 或 base64） -->
-              <img
-                v-if="isValidIcon(bookmark.icon)"
-                :src="String(bookmark.icon)"
-                :alt="bookmark.name"
-                class="h-full w-full object-cover"
-                @error="(e) => (e.target as HTMLImageElement).src = '/icon.png'"
-              />
-              <!-- 其次使用Google Favicon服务，失败时降级到Sinan API -->
-              <img
-                v-else-if="getFaviconUrl(bookmark.url)"
-                :src="getFaviconUrl(bookmark.url)"
-                :alt="bookmark.name"
-                class="h-full w-full object-cover"
-                @error="(e) => onFaviconError(e, bookmark.url)"
-              />
-              <!-- 默认使用项目Logo -->
-              <img
-                v-else
-                src="/icon.png"
-                :alt="bookmark.name"
-                class="h-full w-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ bookmark.name }}</p>
-              <p class="text-xs text-muted-foreground truncate">{{ bookmark.url }}</p>
-            </div>
-            <!-- 标签颜色指示器 -->
-            <div v-if="bookmark.tags && bookmark.tags.length > 0" class="flex items-center -space-x-2 flex-shrink-0">
-              <div
-                v-for="(tag, index) in bookmark.tags.slice(0, 3)"
-                :key="tag.id"
-                class="h-4 w-4 rounded-full border-2 border-white dark:border-gray-800"
-                :style="{ backgroundColor: tag.color || '#52525b', zIndex: bookmark.tags.length - index }"
-                :title="tag.name"
-              />
-              <div
-                v-if="bookmark.tags.length > 3"
-                class="h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 bg-gray-400 flex items-center justify-center"
-                :title="`还有 ${bookmark.tags.length - 3} 个标签`"
-              >
-                <span class="text-[8px] text-white font-semibold">+{{ bookmark.tags.length - 3 }}</span>
-              </div>
-            </div>
-          </div>
-        </ContextMenuTrigger>
-        
-        <ContextMenuContent class="w-64">
-          <ContextMenuItem @click="toggleBookmarkStar(bookmark)" class="flex items-center">
-            <Star :class="['mr-2 h-4 w-4', bookmark.star ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground']"/>
-            <span>{{ bookmark.star ? '取消星标' : '添加星标' }}</span>
-          </ContextMenuItem>
-          <ContextMenuItem @click="editBookmark(bookmark)" class="flex items-center">
-            <Edit class="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>编辑书签</span>
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <!-- 标签选择区域 -->
-          <div class="px-2 py-2">
-            <div class="flex items-center gap-2 mb-2">
-              <Tag class="h-4 w-4 text-muted-foreground" />
-              <span class="text-sm font-medium">标签</span>
-              <button
-                @click.stop="fetchTags"
-                class="p-1 rounded hover:bg-muted transition-colors"
-                title="刷新标签列表"
-              >
-                <RefreshCw class="h-3 w-3 text-muted-foreground" />
-              </button>
-            </div>
-            <div v-if="availableTags.length === 0" class="text-sm text-muted-foreground">
-              暂无可用标签
-            </div>
-            <div v-else class="flex flex-wrap gap-1">
-              <button
-                v-for="tag in availableTags"
-                :key="tag.id"
-                @pointerdown.stop.prevent="handleTagToggle(bookmark, tag.id, $event)"
-                :class="[
-                  'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors',
-                  bookmark.tags?.some(t => t.id === tag.id)
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'bg-muted hover:bg-muted/80 border border-transparent'
-                ]"
-              >
-                <div 
-                  class="w-2 h-2 rounded-full"
-                  :style="{ backgroundColor: tag.color || '#52525b' }"
-                />
-                <span>{{ tag.name }}</span>
-                <Check 
-                  v-if="bookmark.tags?.some(t => t.id === tag.id)"
-                  class="h-3 w-3 ml-0.5"
-                />
-              </button>
-            </div>
-          </div>
-          <ContextMenuSeparator />
-          <ContextMenuItem @click="confirmDeleteBookmark(bookmark.id)" class="flex items-center text-red-600">
-            <Trash2 class="mr-2 h-4 w-4" />
-            <span>删除书签</span>
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
-    </div>
-
-    <!-- 空状态 -->
-    <div v-else class="flex flex-col items-center justify-center py-12 text-muted-foreground">
-      <svg class="h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
-      </svg>
-      <p>暂无书签</p>
-      <p class="text-sm">在此空间添加一些书签开始使用吧</p>
-    </div>
+    <BookmarkGrid
+      v-else
+      :bookmarks="filteredBookmarks"
+      :available-tags="availableTags"
+      :show-refresh-tags="true"
+      empty-state-text="暂无书签"
+      empty-state-subtext="在此空间添加一些书签开始使用吧"
+      @click-bookmark="(bookmark) => openBookmark(bookmark.url, bookmark.id)"
+      @toggle-star="toggleBookmarkStar"
+      @edit-bookmark="editBookmark"
+      @delete-bookmark="confirmDeleteBookmark"
+      @toggle-tag="handleTagToggle"
+      @refresh-tags="fetchTags"
+    />
 
     <!-- 添加书签弹窗 -->
     <AddBookmarkModal
@@ -218,14 +104,7 @@ import { BookmarkAPI, SpaceAPI, TagAPI } from '@/services/api'
 import type { BookmarkResp, SpaceResp, TagResp } from '@/types/api'
 import AddBookmarkModal from '@/components/Bookmark/AddBookmarkModal.vue'
 import EditBookmarkDialog from '@/components/Bookmark/EditBookmarkDialog.vue'
-import { useFavicon } from '@/composables/useFavicon'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu'
+import BookmarkGrid from '@/components/Bookmark/BookmarkGrid.vue'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -236,7 +115,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Edit, Trash2, Tag, Check, Star, RefreshCw } from 'lucide-vue-next'
+import { RefreshCw } from 'lucide-vue-next'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.id as string)
@@ -267,35 +146,6 @@ const filteredBookmarks = computed(() => {
   )
 })
 
-// 使用favicon组合式函数
-const { getFaviconUrl } = useFavicon()
-
-// 处理favicon加载错误
-const onFaviconError = (event: Event, url: string) => {
-  const img = event.target as HTMLImageElement
-  const currentSrc = img.src
-  
-  // 如果当前使用的是Google服务
-  if (currentSrc.includes('google.com/s2/favicons')) {
-    console.log(`Google favicon failed for ${url}, trying Sinan API`)
-    // 切换到Sinan API
-    img.src = `/api/favicon/icon?domain=${encodeURIComponent(new URL(url).hostname)}&sz=32`
-  } else {
-    // 如果Sinan API也失败了，使用默认图标
-    console.log(`Sinan API also failed for ${url}, using default icon`)
-    img.src = '/icon.png'
-  }
-}
-
-// 判断是否为有效的图标（HTTP URL 或 base64）
-const isValidIcon = (icon: number | string): boolean => {
-  if (typeof icon !== 'string') return false
-  // 检查是否为 HTTP/HTTPS URL
-  if (icon.startsWith('http://') || icon.startsWith('https://')) return true
-  // 检查是否为 base64 图片
-  if (icon.startsWith('data:image/')) return true
-  return false
-}
 
 // 获取图标组件
 const getIconComponent = (iconName: string) => {
@@ -390,16 +240,15 @@ const openBookmark = async (url: string, bookmarkId?: string) => {
 // 编辑书签
 const editBookmark = async (bookmark: BookmarkResp) => {
   try {
-    // 获取完整的书签信息，包含所有标签
-    const response = await BookmarkAPI.getBookmarkById(bookmark.id) as any
-    if (response?.flag && response?.data) {
-      editingBookmark.value = response.data
+    // 直接使用传入的书签数据，避免额外的 API 调用
+    if (bookmark && bookmark.id) {
+      editingBookmark.value = bookmark
       showEditDialog.value = true
     } else {
-      console.error('Failed to fetch bookmark details')
+      console.error('Invalid bookmark data:', bookmark)
     }
   } catch (error) {
-    console.error('Failed to fetch bookmark for editing:', error)
+    console.error('Failed to open edit dialog:', error)
   }
 }
 

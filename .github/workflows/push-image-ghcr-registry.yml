@@ -5,15 +5,19 @@ on:
     branches:
       - main
       - develop
+    tags:
+      - '*'
   release:
     types: [published]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     environment: RUNTIME
     env:
       REGISTRY: ghcr.io
-      NAMESPACE: PeixyJ
+      NAMESPACE: lklbjn
       IMAGE_NAME: sinan-website
       REGISTRY_USERNAME: ${{ secrets.GHCR_REGISTRY_USERNAME }}
       REGISTRY_PASSWORD: ${{ secrets.GHCR_REGISTRY_PASSWORD }}

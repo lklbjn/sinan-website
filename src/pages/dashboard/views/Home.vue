@@ -924,7 +924,7 @@ const checkDuplicateBookmarks = async () => {
     duplicateLoading.value = true
     const params = {
       level: duplicateCheckLevel.value,
-      ignoreDuplicate: ignoreDuplicate.value,
+      ignoreDuplicate: !ignoreDuplicate.value,
       stronglyCorrelated: stronglyCorrelated.value
     }
     const response = await BookmarkAPI.checkDuplicate(params)

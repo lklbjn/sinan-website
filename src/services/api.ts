@@ -238,7 +238,7 @@ export class BookmarkAPI {
     }
     
     static reloadAll(force: boolean = false) {
-        return http.patch<string>('/favicon/reload', null, {
+        return http.patch<string>('/bookmark/favicon/reload', null, {
             params: { force }
         })
     }

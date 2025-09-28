@@ -70,6 +70,7 @@ export interface BookmarkResp {
     description: string
     url: string
     icon: number | string
+    subscribed: boolean
     num: number
     star: boolean
     tags?: TagResp[]

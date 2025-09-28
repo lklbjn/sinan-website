@@ -1,10 +1,11 @@
 <template>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
     <template v-for="bookmark in bookmarks" :key="bookmark.id">
-      <ContextMenu>
-        <ContextMenuTrigger as-child>
+      <ContextMenu :disabled="bookmark.subscribed">
+        <ContextMenuTrigger :disabled="bookmark.subscribed" as-child>
           <div @click="handleBookmarkClick(bookmark)" :class="[
-            'flex items-center gap-3 p-3 rounded-lg border bg-card text-card-foreground transition-all cursor-pointer',
+            'flex items-center gap-3 p-3 rounded-lg border bg-card text-card-foreground transition-all',
+            bookmark.subscribed ? 'cursor-default' : 'cursor-pointer',
             bookmark.star
               ? 'shadow-[0_0_15px_rgba(251,191,36,0.2)] hover:shadow-[0_0_20px_rgba(251,191,36,0.3)] border-amber-200/50'
               : 'shadow-sm hover:shadow-md'
@@ -21,11 +22,17 @@
               <img v-else src="/icon.png" :alt="bookmark.name" class="h-full w-full object-cover select-none" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ bookmark.name }}</p>
+              <p class="text-sm font-medium truncate select-none">{{ bookmark.name }}</p>
               <p class="text-xs text-muted-foreground truncate select-none">{{ bookmark.url }}</p>
             </div>
+            <!-- 订阅铃铛图标 -->
+            <div v-if="bookmark.subscribed" class="flex items-center justify-center flex-shrink-0">
+              <svg class="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+              </svg>
+            </div>
             <!-- 标签颜色指示器 -->
-            <div v-if="bookmark.tags && bookmark.tags.length > 0" class="flex items-center -space-x-2 flex-shrink-0">
+            <div v-else-if="bookmark.tags && bookmark.tags.length > 0" class="flex items-center -space-x-2 flex-shrink-0">
               <div v-for="(tag, index) in bookmark.tags.slice(0, 3)" :key="tag.id"
                 class="h-4 w-4 rounded-full border-2 border-white dark:border-gray-800"
                 :style="{ backgroundColor: tag.color || '#52525b', zIndex: bookmark.tags.length - index }"

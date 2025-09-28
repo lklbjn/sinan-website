@@ -24,8 +24,7 @@ import type {
     ReceivedBookmarkQueryParams, UserInfo, Page, ImportBookmarkResp, SpaceRespSimple, SpaceDragSortParams,
     TagDragSortParams, UserRegister, UserLoginResp, UserLoginReq, UserKeyResp, CreateUserKeyReq, ChangePasswordReq,
     UpdateShareBookmarkReq, RemoveShareBookmarkReq, SearchCollectionUserReq, GetShareUrl, CollectionUserInfoResp,
-    CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp,
-    IgnoredGroupResp, AddIgnoredGroupReq, SetIgnoredGroupsReq
+    CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp
 } from '@/types/api'
 
 export class GithubAPI {

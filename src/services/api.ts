@@ -24,7 +24,8 @@ import type {
     ReceivedBookmarkQueryParams, UserInfo, Page, ImportBookmarkResp, SpaceRespSimple, SpaceDragSortParams,
     TagDragSortParams, UserRegister, UserLoginResp, UserLoginReq, UserKeyResp, CreateUserKeyReq, ChangePasswordReq,
     UpdateShareBookmarkReq, RemoveShareBookmarkReq, SearchCollectionUserReq, GetShareUrl, CollectionUserInfoResp,
-    CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp
+    CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp,
+    IgnoredGroupResp, AddIgnoredGroupReq, SetIgnoredGroupsReq
 } from '@/types/api'
 
 export class GithubAPI {
@@ -238,8 +239,29 @@ export class BookmarkAPI {
     }
 
     // 检查重复书签
-    static checkDuplicates() {
-        return http.get<any>('/bookmark/duplicates')
+    static checkDuplicates(level: number) {
+        return http.get<any>('/bookmark/duplicates', { params: { level } })
+    }
+
+    // 忽略组相关API
+    // 获取用户的所有忽略组
+    static getIgnoredGroups() {
+        return http.get<string[]>('/bookmark/ignored-groups')
+    }
+
+    // 添加忽略组
+    static addIgnoredGroup(groupName: string) {
+        return http.post<string>('/bookmark/ignored-groups', { groupName })
+    }
+
+    // 移除忽略组
+    static removeIgnoredGroup(groupName: string) {
+        return http.delete<string>(`/bookmark/ignored-groups/${encodeURIComponent(groupName)}`)
+    }
+
+    // 批量设置忽略组
+    static setIgnoredGroups(groupNames: string[]) {
+        return http.put<string>('/bookmark/ignored-groups', { groupNames })
     }
 }
 

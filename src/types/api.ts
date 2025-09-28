@@ -273,6 +273,21 @@ export interface ImportBookmarkResp {
     message: string
 }
 
+// 忽略组相关类型
+export interface IgnoredGroupResp {
+    groupName: string
+    createdAt: string
+    updatedAt: string
+}
+
+export interface AddIgnoredGroupReq {
+    groupName: string
+}
+
+export interface SetIgnoredGroupsReq {
+    groupNames: string[]
+}
+
 // 用户Key相关类型
 export interface UserKeyResp {
     id: string

@@ -37,6 +37,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useFavicon } from '@/composables/useFavicon'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -192,13 +193,79 @@ const systemSettings = ref({
 const showDuplicateCheckDialog = ref(false)
 const isCheckingDuplicates = ref(false)
 const duplicateBookmarks = ref<any[]>([])
-const duplicateStats = ref({
-  totalBookmarks: 0,
-  duplicateGroups: 0,
-  duplicateCount: 0
-})
 const selectedBookmarks = ref<{[groupName: string]: string[]}>({}) // 存储每组中用户选择保留的书签ID数组
 
+// 使用favicon功能
+const { getFaviconUrl } = useFavicon()
+
+// 判断是否为有效的图标（HTTP URL 或 base64）
+const isValidIcon = (icon: number | string): boolean => {
+  if (typeof icon !== 'string') return false
+  // 检查是否为 HTTP/HTTPS URL
+  if (icon.startsWith('http://') || icon.startsWith('https://')) return true
+  // 检查是否为 base64 图片
+  if (icon.startsWith('data:image/')) return true
+  return false
+}
+
+// 处理上传图标加载错误
+const onIconError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.style.opacity = '0'
+  window.setTimeout(() => {
+    img.style.display = 'none'
+    const fallback = img.parentElement?.querySelector('.fallback-icon')
+    if (fallback) (fallback as HTMLElement).style.opacity = '1'
+  }, 200)
+}
+
+// 处理favicon加载错误
+const onFaviconError = (event: Event, url: string) => {
+  const img = event.target as HTMLImageElement
+  const currentSrc = img.src
+
+  // 标记图标加载失败
+  iconLoadStatus.value[img.dataset.bookmarkId || ''] = false
+
+  // 如果当前使用的是Google服务
+  if (currentSrc.includes('google.com/s2/favicons')) {
+    console.log(`Google favicon failed for ${url}, trying Sinan API`)
+    // 切换到Sinan API
+    img.src = `/api/favicon/icon?domain=${encodeURIComponent(new URL(url).hostname)}&sz=32`
+  } else {
+    // 如果Sinan API也失败了，使用默认图标
+    console.log(`Sinan API also failed for ${url}, using default icon`)
+    img.style.opacity = '0'
+    window.setTimeout(() => {
+      img.style.display = 'none'
+      const fallback = img.parentElement?.querySelector('.fallback-icon')
+      if (fallback) (fallback as HTMLElement).style.opacity = '1'
+    }, 200)
+  }
+}
+
+// 获取书签首字母
+const getBookmarkInitial = (name: string): string => {
+  if (!name || name.trim() === '') return 'B'
+  return name.trim()[0].toUpperCase()
+}
+
+// 图标加载状态管理
+const iconLoadStatus = ref<Record<string, boolean>>({})
+
+// 检查图标是否已加载
+const isIconLoaded = (bookmarkId: string): boolean => {
+  return iconLoadStatus.value[bookmarkId] === true
+}
+
+// 标记图标加载成功
+const onIconLoad = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  const bookmarkId = img.dataset.bookmarkId
+  if (bookmarkId) {
+    iconLoadStatus.value[bookmarkId] = true
+  }
+}
 
 const fetchUserInfo = async () => {
   try {
@@ -1111,11 +1178,6 @@ const checkDuplicateBookmarks = async () => {
     if (response.code === 0 && response.data) {
       // API现在返回完整的书签信息，包括空间和标签
       duplicateBookmarks.value = response.data.duplicates || []
-      duplicateStats.value = response.data.stats || {
-        totalBookmarks: 0,
-        duplicateGroups: 0,
-        duplicateCount: 0
-      }
     } else {
       importResultMessage.value = `检查失败：${response.message || '未知错误'}`
     }
@@ -1131,11 +1193,6 @@ const checkDuplicateBookmarks = async () => {
 const closeDuplicateCheckDialog = () => {
   showDuplicateCheckDialog.value = false
   duplicateBookmarks.value = []
-  duplicateStats.value = {
-    totalBookmarks: 0,
-    duplicateGroups: 0,
-    duplicateCount: 0
-  }
   selectedBookmarks.value = {} // 清除用户选择
 }
 
@@ -2026,34 +2083,23 @@ onMounted(() => {
 
   <!-- 检查重复书签对话框 -->
   <Dialog v-model:open="showDuplicateCheckDialog">
-    <DialogContent class="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle class="flex items-center gap-2">
-          <SearchCheck class="h-5 w-5"/>
-          检查重复书签
-        </DialogTitle>
-        <DialogDescription>
-          检查并列出您的重复书签，帮助您清理冗余数据
-        </DialogDescription>
-      </DialogHeader>
+    <DialogContent class="sm:max-w-4xl h-[80vh] p-0 flex flex-col rounded-lg overflow-hidden">
+      <!-- 固定在顶部的对话框头部 -->
+      <div class="flex-shrink-0 bg-background border-b p-6">
+        <DialogHeader>
+          <DialogTitle class="flex items-center gap-2">
+            <SearchCheck class="h-5 w-5"/>
+            检查重复书签
+          </DialogTitle>
+          <DialogDescription>
+            检查并列出您的重复书签，帮助您清理冗余数据
+          </DialogDescription>
+        </DialogHeader>
+      </div>
 
-      <div class="space-y-4 py-4">
-        <!-- 统计信息 -->
-        <div v-if="!isCheckingDuplicates" class="grid grid-cols-3 gap-4">
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-blue-600">{{ duplicateStats.totalBookmarks }}</div>
-            <div class="text-sm text-blue-600">总书签数</div>
-          </div>
-          <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-orange-600">{{ duplicateStats.duplicateGroups }}</div>
-            <div class="text-sm text-orange-600">重复组数</div>
-          </div>
-          <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-red-600">{{ duplicateStats.duplicateCount }}</div>
-            <div class="text-sm text-red-600">重复书签</div>
-          </div>
-        </div>
-
+      <!-- 可滚动的内容区域 -->
+      <div class="flex-1 overflow-y-auto px-6 py-4">
+  
         <!-- 加载状态 -->
         <div v-if="isCheckingDuplicates" class="text-center py-8">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -2118,14 +2164,44 @@ onMounted(() => {
                 </div>
 
                 <!-- 网站图标 -->
-                <img
-                  v-if="bookmark.icon"
-                  :src="bookmark.icon"
-                  class="w-5 h-5 rounded flex-shrink-0"
-                  :alt="bookmark.name"
-                />
-                <div v-else class="w-5 h-5 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                  <span class="text-xs">{{ bookmark.name?.[0]?.toUpperCase() }}</span>
+                <div class="relative w-5 h-5 rounded-full flex-shrink-0 overflow-hidden bg-muted">
+                  <!-- 优先使用书签上传的图标 -->
+                  <img
+                    v-if="isValidIcon(bookmark.icon)"
+                    :src="bookmark.icon"
+                    :data-bookmark-id="bookmark.id"
+                    class="w-full h-full object-cover transition-opacity duration-200"
+                    :alt="bookmark.name"
+                    loading="lazy"
+                    @load="onIconLoad"
+                    @error="onIconError"
+                  />
+                  <!-- 其次使用favicon服务 -->
+                  <img
+                    v-else-if="getFaviconUrl(bookmark.url)"
+                    :src="getFaviconUrl(bookmark.url)"
+                    :data-bookmark-id="bookmark.id"
+                    class="w-full h-full object-cover transition-opacity duration-200"
+                    :alt="bookmark.name"
+                    loading="lazy"
+                    @load="onIconLoad"
+                    @error="(e) => onFaviconError(e, bookmark.url)"
+                  />
+                  <!-- 默认使用首字母图标 -->
+                  <div
+                    class="fallback-icon absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs transition-opacity duration-200"
+                    :style="isValidIcon(bookmark.icon) || getFaviconUrl(bookmark.url) ? 'opacity: 0;' : 'opacity: 1;'"
+                  >
+                    {{ getBookmarkInitial(bookmark.name) }}
+                  </div>
+                  <!-- 加载状态指示器 -->
+                  <div
+                    v-if="isValidIcon(bookmark.icon) || getFaviconUrl(bookmark.url)"
+                    class="absolute inset-0 bg-muted/50 backdrop-blur-sm flex items-center justify-center"
+                    :class="{ 'opacity-0': isIconLoaded(bookmark.id), 'opacity-100': !isIconLoaded(bookmark.id) }"
+                  >
+                    <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  </div>
                 </div>
 
                 <!-- 书签信息 -->
@@ -2183,17 +2259,20 @@ onMounted(() => {
               </div>
             </div>
           </div>
-        </div>
+      </div>
       </div>
 
-      <DialogFooter>
-        <Button @click="checkDuplicateBookmarks" :disabled="isCheckingDuplicates">
-          {{ isCheckingDuplicates ? '检查中...' : '刷新' }}
-        </Button>
-        <Button variant="outline" @click="closeDuplicateCheckDialog">
-          关闭
-        </Button>
-      </DialogFooter>
+      <!-- 固定在底部的按钮区域 -->
+      <div class="flex-shrink-0 bg-background border-t p-6">
+        <DialogFooter>
+          <Button @click="checkDuplicateBookmarks" :disabled="isCheckingDuplicates">
+            {{ isCheckingDuplicates ? '检查中...' : '刷新' }}
+          </Button>
+          <Button variant="outline" @click="closeDuplicateCheckDialog">
+            关闭
+          </Button>
+        </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 </template>

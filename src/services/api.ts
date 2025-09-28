@@ -236,6 +236,11 @@ export class BookmarkAPI {
     static importChrome(file: File) {
         return http.upload<ImportBookmarkResp>('/bookmark/import/chrome', file)
     }
+
+    // 检查重复书签
+    static checkDuplicates() {
+        return http.get<any>('/bookmark/duplicates')
+    }
 }
 
 // 空间相关API

@@ -18,6 +18,9 @@ import {
   User,
   Edit,
   Settings,
+  SearchCheck,
+  FileX,
+  Check,
 } from "lucide-vue-next"
 
 import {
@@ -184,6 +187,17 @@ const showSystemSettingsDialog = ref(false)
 const systemSettings = ref({
   faviconSource: 'google' // 'google' | 'sinan'
 })
+
+// 检查重复书签相关
+const showDuplicateCheckDialog = ref(false)
+const isCheckingDuplicates = ref(false)
+const duplicateBookmarks = ref<any[]>([])
+const duplicateStats = ref({
+  totalBookmarks: 0,
+  duplicateGroups: 0,
+  duplicateCount: 0
+})
+const selectedBookmarks = ref<{[groupName: string]: string[]}>({}) // 存储每组中用户选择保留的书签ID数组
 
 
 const fetchUserInfo = async () => {
@@ -1080,6 +1094,117 @@ const closeSystemSettingsDialog = () => {
   showSystemSettingsDialog.value = false
 }
 
+// 打开检查重复书签对话框
+const openDuplicateCheckDialog = async () => {
+  showDuplicateCheckDialog.value = true
+  await checkDuplicateBookmarks()
+}
+
+// 检查重复书签
+const checkDuplicateBookmarks = async () => {
+  try {
+    isCheckingDuplicates.value = true
+    duplicateBookmarks.value = []
+
+    const response = await BookmarkAPI.checkDuplicates()
+
+    if (response.code === 0 && response.data) {
+      // API现在返回完整的书签信息，包括空间和标签
+      duplicateBookmarks.value = response.data.duplicates || []
+      duplicateStats.value = response.data.stats || {
+        totalBookmarks: 0,
+        duplicateGroups: 0,
+        duplicateCount: 0
+      }
+    } else {
+      importResultMessage.value = `检查失败：${response.message || '未知错误'}`
+    }
+  } catch (error) {
+    console.error('检查重复书签失败:', error)
+    importResultMessage.value = '检查失败，请稍后重试'
+  } finally {
+    isCheckingDuplicates.value = false
+  }
+}
+
+// 关闭检查重复书签对话框
+const closeDuplicateCheckDialog = () => {
+  showDuplicateCheckDialog.value = false
+  duplicateBookmarks.value = []
+  duplicateStats.value = {
+    totalBookmarks: 0,
+    duplicateGroups: 0,
+    duplicateCount: 0
+  }
+  selectedBookmarks.value = {} // 清除用户选择
+}
+
+// 保存选中的书签（删除未选中的）
+const saveSelectedBookmarks = async (groupName: string) => {
+  try {
+    const duplicatesToDelete = duplicateBookmarks.value.find(group => group.group === groupName)
+    if (!duplicatesToDelete) return
+
+    const selectedIds = selectedBookmarks.value[groupName]
+    if (!selectedIds || selectedIds.length === 0) {
+      importResultMessage.value = '请先选择要保存的书签'
+      showImportResult.value = true
+      return
+    }
+
+    // 删除未选中的书签
+    const bookmarksToDelete = duplicatesToDelete.bookmarks.filter((bookmark: any) => !selectedIds.includes(bookmark.id))
+
+    // 调用删除API
+    for (const bookmark of bookmarksToDelete) {
+      await BookmarkAPI.delete(bookmark.id)
+    }
+
+    // 清除该组的选择
+    delete selectedBookmarks.value[groupName]
+
+    // 重新检查重复书签
+    await checkDuplicateBookmarks()
+  } catch (error) {
+    console.error('删除重复书签失败:', error)
+    importResultMessage.value = '删除失败，请稍后重试'
+    showImportResult.value = true
+  }
+}
+
+// 删除单个书签
+const deleteSingleBookmark = async (bookmarkId: string) => {
+  try {
+    await BookmarkAPI.delete(bookmarkId)
+    await checkDuplicateBookmarks()
+  } catch (error) {
+    console.error('删除书签失败:', error)
+    importResultMessage.value = '删除失败，请稍后重试'
+    showImportResult.value = true
+  }
+}
+
+
+// 选择要保留的书签（支持多选）
+const selectBookmarkToKeep = (groupName: string, bookmarkId: string) => {
+  if (!selectedBookmarks.value[groupName]) {
+    selectedBookmarks.value[groupName] = []
+  }
+
+  const index = selectedBookmarks.value[groupName].indexOf(bookmarkId)
+  if (index === -1) {
+    // 添加到选中列表
+    selectedBookmarks.value[groupName].push(bookmarkId)
+  } else {
+    // 从选中列表中移除
+    selectedBookmarks.value[groupName].splice(index, 1)
+    // 如果数组为空，删除该组
+    if (selectedBookmarks.value[groupName].length === 0) {
+      delete selectedBookmarks.value[groupName]
+    }
+  }
+}
+
 onMounted(() => {
   fetchUserInfo()
   loadSystemSettings() // 初始化时加载系统设置
@@ -1152,6 +1277,10 @@ onMounted(() => {
           <DropdownMenuItem @click="handleExport" :disabled="isExporting">
             <Download/>
             {{ isExporting ? '导出中...' : '导出用户数据' }}
+          </DropdownMenuItem>
+          <DropdownMenuItem @click="openDuplicateCheckDialog" :disabled="isCheckingDuplicates">
+            <SearchCheck/>
+            {{ isCheckingDuplicates ? '检查中...' : '检查重复书签' }}
           </DropdownMenuItem>
           <DropdownMenuSeparator/>
           <DropdownMenuGroup>
@@ -1890,6 +2019,179 @@ onMounted(() => {
         </Button>
         <Button @click="saveSystemSettings">
           保存设置
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- 检查重复书签对话框 -->
+  <Dialog v-model:open="showDuplicateCheckDialog">
+    <DialogContent class="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <SearchCheck class="h-5 w-5"/>
+          检查重复书签
+        </DialogTitle>
+        <DialogDescription>
+          检查并列出您的重复书签，帮助您清理冗余数据
+        </DialogDescription>
+      </DialogHeader>
+
+      <div class="space-y-4 py-4">
+        <!-- 统计信息 -->
+        <div v-if="!isCheckingDuplicates" class="grid grid-cols-3 gap-4">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ duplicateStats.totalBookmarks }}</div>
+            <div class="text-sm text-blue-600">总书签数</div>
+          </div>
+          <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ duplicateStats.duplicateGroups }}</div>
+            <div class="text-sm text-orange-600">重复组数</div>
+          </div>
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-red-600">{{ duplicateStats.duplicateCount }}</div>
+            <div class="text-sm text-red-600">重复书签</div>
+          </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="isCheckingDuplicates" class="text-center py-8">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p class="text-muted-foreground">正在检查重复书签...</p>
+        </div>
+
+        <!-- 无重复书签 -->
+        <div v-else-if="duplicateBookmarks.length === 0" class="text-center py-8">
+          <FileX class="h-12 w-12 mx-auto mb-4 text-green-500"/>
+          <p class="text-lg font-medium text-green-600">恭喜！没有发现重复书签</p>
+          <p class="text-sm text-muted-foreground">您的书签库非常整洁</p>
+        </div>
+
+        <!-- 重复书签列表 -->
+        <div v-else class="space-y-4">
+          <div v-for="group in duplicateBookmarks" :key="group.group" class="border rounded-lg p-3">
+            <!-- 组标题 -->
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <h3 class="font-medium text-sm">{{ group.group }}</h3>
+                <span class="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
+                  {{ group.bookmarks.length }} 个重复
+                </span>
+                <span v-if="selectedBookmarks[group.group] && selectedBookmarks[group.group].length > 0" class="bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-full">
+                  已选择 {{ selectedBookmarks[group.group].length }} 个
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="saveSelectedBookmarks(group.group)"
+                :disabled="!selectedBookmarks[group.group] || selectedBookmarks[group.group].length === 0"
+                class="text-green-600 border-green-200 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Check class="h-3 w-3 mr-1"/>
+                保存选中的
+              </Button>
+            </div>
+
+            <!-- 书签列表 -->
+            <div class="space-y-1">
+              <div
+                v-for="bookmark in group.bookmarks"
+                :key="bookmark.id"
+                class="flex items-center gap-2 p-2 rounded-md border bg-card transition-all duration-200 cursor-pointer hover:bg-accent/5"
+                :class="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id) ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' : 'bg-card'"
+                @click="selectBookmarkToKeep(group.group, bookmark.id)"
+              >
+                <!-- 复选框 -->
+                <div class="flex items-center justify-center flex-shrink-0">
+                  <div
+                    class="w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-all duration-200"
+                    :class="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id)
+                      ? 'bg-blue-600 border-blue-600'
+                      : 'border-gray-300 hover:border-blue-400'"
+                  >
+                    <Check
+                      v-if="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id)"
+                      class="w-2.5 h-2.5 text-white"
+                    />
+                  </div>
+                </div>
+
+                <!-- 网站图标 -->
+                <img
+                  v-if="bookmark.icon"
+                  :src="bookmark.icon"
+                  class="w-5 h-5 rounded flex-shrink-0"
+                  :alt="bookmark.name"
+                />
+                <div v-else class="w-5 h-5 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                  <span class="text-xs">{{ bookmark.name?.[0]?.toUpperCase() }}</span>
+                </div>
+
+                <!-- 书签信息 -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <h4 class="font-medium text-sm truncate">{{ bookmark.name }}</h4>
+                      <span v-if="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id)" class="bg-blue-100 text-blue-600 text-xs px-1.5 py-0.5 rounded whitespace-nowrap">
+                        ✓ 已选择
+                      </span>
+                    </div>
+                    <span class="text-xs text-muted-foreground whitespace-nowrap">
+                      {{ new Date(bookmark.createTime).toLocaleDateString() }}
+                    </span>
+                  </div>
+                  <p class="text-xs text-muted-foreground truncate mt-0.5">{{ bookmark.url }}</p>
+                  <div class="flex items-center gap-3 mt-1">
+                    <!-- 空间信息 -->
+                    <div v-if="bookmark.space" class="flex items-center gap-1">
+                      <span class="text-xs text-muted-foreground">空间:</span>
+                      <span class="text-xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                        {{ bookmark.space.name }}
+                      </span>
+                    </div>
+                    <!-- 标签信息 -->
+                    <div v-if="bookmark.tags && bookmark.tags.length > 0" class="flex items-center gap-1">
+                      <span class="text-xs text-muted-foreground">标签:</span>
+                      <div class="flex items-center gap-1">
+                        <span
+                          v-for="tag in bookmark.tags"
+                          :key="tag.id"
+                          class="text-xs px-1.5 py-0.5 rounded-full font-medium border"
+                          :style="{
+                            backgroundColor: `${tag.color}15`,
+                            color: tag.color,
+                            borderColor: `${tag.color}30`
+                          }"
+                        >
+                          {{ tag.name }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click.stop="deleteSingleBookmark(bookmark.id)"
+                  class="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0 p-1 h-auto"
+                >
+                  <Trash2 class="h-3 w-3"/>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button @click="checkDuplicateBookmarks" :disabled="isCheckingDuplicates">
+          {{ isCheckingDuplicates ? '检查中...' : '刷新' }}
+        </Button>
+        <Button variant="outline" @click="closeDuplicateCheckDialog">
+          关闭
         </Button>
       </DialogFooter>
     </DialogContent>

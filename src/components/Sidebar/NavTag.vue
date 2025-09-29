@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue"
+import { ref, watch, onMounted, onUnmounted } from "vue"
 import { useRouter } from "vue-router"
 import { eventBus, EVENTS } from '@/utils/eventBus'
 import {
@@ -61,9 +61,63 @@ const hasMore = ref(false)
 const dialogOpen = ref(false)
 const editDialogOpen = ref(false)
 const deleteDialogOpen = ref(false)
+
+// 生成随机颜色
+const generateRandomColor = () => {
+  const colors = [
+    '#ef4444', // red-500
+    '#f97316', // orange-500
+    '#eab308', // yellow-500
+    '#22c55e', // green-500
+    '#06b6d4', // cyan-500
+    '#3b82f6', // blue-500
+    '#8b5cf6', // violet-500
+    '#ec4899', // pink-500
+    '#f43f5e', // rose-500
+    '#84cc16', // lime-500
+    '#14b8a6', // teal-500
+    '#6366f1', // indigo-500
+    '#dc2626', // red-600
+    '#ea580c', // orange-600
+    '#ca8a04', // yellow-600
+    '#16a34a', // green-600
+    '#0891b2', // cyan-600
+    '#2563eb', // blue-600
+    '#7c3aed', // violet-600
+    '#db2777', // pink-600
+    '#e11d48', // rose-600
+    '#65a30d', // lime-600
+    '#0d9488', // teal-600
+    '#4f46e5', // indigo-600
+    '#991b1b', // red-700
+    '#c2410c', // orange-700
+    '#a16207', // yellow-700
+    '#15803d', // green-700
+    '#0e7490', // cyan-700
+    '#1d4ed8', // blue-700
+    '#6d28d9', // violet-700
+    '#be185d', // pink-700
+    '#9f1239', // rose-700
+    '#4d7c0f', // lime-700
+    '#0f766e', // teal-700
+    '#4338ca', // indigo-700
+    '#fbbf24', // amber-400
+    '#34d399', // emerald-400
+    '#60a5fa', // sky-400
+    '#a78bfa', // purple-400
+    '#fb7185', // rose-400
+    '#4ade80', // green-400
+    '#2dd4bf', // teal-400
+    '#f87171', // red-400
+    '#fb923c', // orange-400
+    '#facc15', // yellow-400
+  ]
+  return colors[Math.floor(Math.random() * colors.length)]
+}
+
 const newTag = ref<AddTagReq>({
   name: '',
-  color: '#52525b',
+  color: generateRandomColor(),
   description: ''
 })
 const editTag = ref<EditTagReq>({
@@ -86,7 +140,7 @@ const handleAddTag = async () => {
     const response = await TagAPI.create(newTag.value)
     if (response.code === 0) {
       dialogOpen.value = false
-      newTag.value = { name: '', color: '#52525b', description: '' }
+      newTag.value = { name: '', color: generateRandomColor(), description: '' }
       await fetchTags()
       // 发出事件通知其他组件刷新标签列表
       eventBus.emit(EVENTS.REFRESH_TAGS)
@@ -199,10 +253,20 @@ const loadMore = async () => {
   await fetchTags(true)
 }
 
+// 监听对话框打开事件，每次打开生成新的随机颜色
+const handleDialogOpen = (isOpen: boolean) => {
+  if (isOpen) {
+    newTag.value.color = generateRandomColor()
+  }
+}
+
 // 监听刷新事件
 const handleRefreshTags = () => {
   fetchTags()
 }
+
+// 监听对话框打开状态
+watch(dialogOpen, handleDialogOpen)
 
 onMounted(() => {
   fetchTags()

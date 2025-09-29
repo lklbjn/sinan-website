@@ -16,9 +16,10 @@
           <ChevronsUpDown class="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        class="p-0" 
+      <PopoverContent
+        class="p-0"
         align="start"
+        side="bottom"
         :style="{ width: contentWidth }"
       >
         <div class="flex flex-col max-h-[300px]">

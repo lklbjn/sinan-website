@@ -12,7 +12,6 @@ import {
   ListOrdered,
   GripVertical,
   Trash2,
-  KeyRound,
   Key,
   Plus,
   User,
@@ -62,7 +61,6 @@ import {
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {Button} from '@/components/ui/button'
-import {Separator} from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -761,12 +759,6 @@ const executeClearData = async () => {
   }
 }
 
-// 打开修改密码对话框
-const openChangePasswordDialog = async () => {
-  showChangePasswordDialog.value = true
-  resetChangePasswordForm()
-  await checkPasswordState()
-}
 
 // 检查密码状态
 const checkPasswordState = async () => {
@@ -883,13 +875,6 @@ const cancelChangePassword = () => {
   resetChangePasswordForm()
 }
 
-// 打开Key管理对话框
-const openKeyManagementDialog = async () => {
-  showKeyManagementDialog.value = true
-  showCreateKeyForm.value = false
-  resetCreateKeyForm()
-  await fetchUserKeys()
-}
 
 // 获取用户Keys
 const fetchUserKeys = async () => {

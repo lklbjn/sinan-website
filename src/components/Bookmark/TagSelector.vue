@@ -92,7 +92,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { Check, ChevronsUpDown, Search, MoreHorizontal, X } from 'lucide-vue-next'
+import { ChevronsUpDown, Search, MoreHorizontal, X } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {

@@ -138,6 +138,22 @@ export class UserAPI {
         return http.delete<string>(`/user/key/${keyId}`)
     }
 
+    // 上传用户头像
+    static uploadAvatar(file: File) {
+        const formData = new FormData()
+        formData.append('file', file)
+        return http.post<string>('/user/upload/avatar', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+    }
+
+    // 获取用户头像URL (静态方法，直接返回URL)
+    static getAvatarUrl(fileName: string) {
+        return `/api/user/avatars/${fileName}`
+    }
+
 }
 
 // 书签相关API

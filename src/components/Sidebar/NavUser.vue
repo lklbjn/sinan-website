@@ -118,6 +118,10 @@ const importResultMessage = ref('')
 const jsonFileInput = ref<HTMLInputElement>()
 const isImportingJson = ref(false)
 
+// 头像上传相关
+const avatarFileInput = ref<HTMLInputElement>()
+const isUploadingAvatar = ref(false)
+
 // 导出相关
 const isExporting = ref(false)
 
@@ -617,6 +621,63 @@ const handleJsonFileSelect = async (event: Event) => {
     showImportResult.value = true
     // 清除文件选择，允许重复选择同一文件
     if (target) target.value = ''
+  }
+}
+
+// 触发头像文件选择
+const triggerAvatarSelect = () => {
+  avatarFileInput.value?.click()
+}
+
+// 处理头像文件选择
+const handleAvatarSelect = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (!file) return
+
+  // 检查文件类型
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
+  if (!allowedTypes.includes(file.type)) {
+    accountSettingsErrors.value = ['请选择 JPG 或 PNG 格式的图片文件']
+    if (target) target.value = ''
+    return
+  }
+
+  // 检查文件大小 (限制为5MB)
+  const maxSize = 5 * 1024 * 1024 // 5MB
+  if (file.size > maxSize) {
+    accountSettingsErrors.value = ['图片文件大小不能超过 5MB']
+    if (target) target.value = ''
+    return
+  }
+
+  try {
+    isUploadingAvatar.value = true
+    accountSettingsErrors.value = []
+
+    // 调用头像上传API
+    const response = await UserAPI.uploadAvatar(file)
+
+    if (response.flag && response.data) {
+      // API返回的是完整的头像URL
+      if (user.value) {
+        user.value.avatar = response.data
+      }
+    } else {
+      throw new Error(response.message || '上传失败')
+    }
+
+    // 清除文件选择
+    if (target) target.value = ''
+
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    const errorMessage = error instanceof Error ? error.message : '头像上传失败，请稍后重试'
+    accountSettingsErrors.value = [errorMessage]
+    if (target) target.value = ''
+  } finally {
+    isUploadingAvatar.value = false
   }
 }
 
@@ -1419,7 +1480,7 @@ onMounted(() => {
               class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
           >
             <Avatar class="h-8 w-8 rounded-lg">
-              <AvatarImage :src="user.avatar" :alt="user.name"/>
+              <AvatarImage :src="user.avatar || ''" :alt="user.name"/>
               <AvatarFallback class="rounded-lg">
                 {{ user.name.slice(0, 2).toUpperCase() }}
               </AvatarFallback>
@@ -1440,7 +1501,7 @@ onMounted(() => {
           <DropdownMenuLabel class="p-0 font-normal">
             <div class="flex items-center gap-2 px-2 py-2 text-left text-sm">
               <Avatar class="h-7 w-7 rounded-lg flex-shrink-0">
-                <AvatarImage :src="user.avatar" :alt="user.name"/>
+                <AvatarImage :src="user.avatar || ''" :alt="user.name"/>
                 <AvatarFallback class="rounded-lg">
                   {{ user.name.slice(0, 2).toUpperCase() }}
                 </AvatarFallback>
@@ -1532,6 +1593,15 @@ onMounted(() => {
       accept=".json,application/json"
       style="display: none"
       @change="handleJsonFileSelect"
+  />
+
+  <!-- 头像文件输入框 -->
+  <input
+      ref="avatarFileInput"
+      type="file"
+      accept="image/jpeg,image/png,image/jpg"
+      style="display: none"
+      @change="handleAvatarSelect"
   />
 
   <!-- 导入结果对话框 -->
@@ -2005,6 +2075,33 @@ onMounted(() => {
         <!-- 基本信息设置 -->
         <div class="space-y-4">
           <h3 class="text-sm font-medium">基本信息</h3>
+
+          <!-- 头像设置 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <Label class="text-sm">头像</Label>
+            <div class="md:col-span-2 flex items-center gap-4">
+              <Avatar class="h-16 w-16 rounded-lg">
+                <AvatarImage :src="user?.avatar || ''" :alt="user?.name || ''"/>
+                <AvatarFallback class="rounded-lg">
+                  {{ user?.name?.slice(0, 2).toUpperCase() || 'UN' }}
+                </AvatarFallback>
+              </Avatar>
+              <div class="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  @click="triggerAvatarSelect"
+                  :disabled="isUploadingAvatar"
+                >
+                  <Upload class="h-3 w-3 mr-1"/>
+                  {{ isUploadingAvatar ? '上传中...' : '更换头像' }}
+                </Button>
+                <p class="text-xs text-muted-foreground">
+                  支持 JPG、PNG 格式，建议尺寸 200x200 像素
+                </p>
+              </div>
+            </div>
+          </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             <Label class="text-sm">用户名</Label>

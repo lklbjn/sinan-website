@@ -118,6 +118,11 @@ export class UserAPI {
         return http.post<string>('/user/change-password', data)
     }
 
+    // 修改用户名
+    static changeUsername(newUsername: string) {
+        return http.post<string>('/user/change-username', { newUsername })
+    }
+
     // 获取密码状态
     static passwordState() {
         return http.get<boolean>('/user/password/status')

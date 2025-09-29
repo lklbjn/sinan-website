@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   Trash2,
   Plus,
+  Shuffle,
 } from "lucide-vue-next"
 
 import {
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 import { TagAPI } from '@/services/api'
 import type { TagResp, AddTagReq, EditTagReq } from '@/types/api'
 
@@ -307,7 +309,20 @@ onUnmounted(() => {
             />
           </div>
           <div class="space-y-2">
-            <Label>标签颜色</Label>
+            <div class="flex items-center justify-between">
+              <Label>标签颜色</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="newTag.color = generateRandomColor()"
+                :disabled="isSubmitting"
+                class="h-7 px-2 gap-1.5"
+              >
+                <Shuffle class="h-3 w-3"/>
+                随机
+              </Button>
+            </div>
             <div class="flex items-center gap-2">
               <button
                 v-for="color in ['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15']"
@@ -326,15 +341,15 @@ onUnmounted(() => {
                   class="w-8 h-8 rounded-full cursor-pointer opacity-0 absolute inset-0"
                   :disabled="isSubmitting"
                 />
-                <div 
+                <div
                   class="w-8 h-8 rounded-full border-2 transition-all pointer-events-none overflow-hidden"
                   :class="!['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15'].includes(newTag.color) ? 'border-gray-900 dark:border-gray-100 scale-110' : 'border-transparent'"
                 >
-                  <div 
+                  <div
                     class="w-full h-full"
-                    :style="{ 
-                      background: !['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15'].includes(newTag.color) 
-                        ? newTag.color 
+                    :style="{
+                      background: !['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15'].includes(newTag.color)
+                        ? newTag.color
                         : 'conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #84cc16, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444)'
                     }"
                   />
@@ -434,7 +449,20 @@ onUnmounted(() => {
           />
         </div>
         <div class="space-y-2">
-          <Label>标签颜色</Label>
+          <div class="flex items-center justify-between">
+            <Label>标签颜色</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              @click="editTag.color = generateRandomColor()"
+              :disabled="isSubmitting"
+              class="h-7 px-2 gap-1.5"
+            >
+              <Shuffle class="h-3 w-3"/>
+              随机
+            </Button>
+          </div>
           <div class="flex items-center gap-2">
             <button
               v-for="color in ['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15']"
@@ -453,15 +481,15 @@ onUnmounted(() => {
                 class="w-8 h-8 rounded-full cursor-pointer opacity-0 absolute inset-0"
                 :disabled="isSubmitting"
               />
-              <div 
+              <div
                 class="w-8 h-8 rounded-full border-2 transition-all pointer-events-none overflow-hidden"
                 :class="!['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15'].includes(editTag.color) ? 'border-gray-900 dark:border-gray-100 scale-110' : 'border-transparent'"
               >
-                <div 
+                <div
                   class="w-full h-full"
-                  :style="{ 
-                    background: !['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15'].includes(editTag.color) 
-                      ? editTag.color 
+                  :style="{
+                    background: !['#52525b', '#e11d48', '#22c55e', '#3b82f6', '#facc15'].includes(editTag.color)
+                      ? editTag.color
                       : 'conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #84cc16, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444)'
                   }"
                 />

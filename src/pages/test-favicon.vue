@@ -97,7 +97,7 @@ const onFaviconError = (event: Event, url: string) => {
     // 如果Sinan API也失败了，使用默认图标
     loadStatus[url] = '❌ 两个服务都失败，使用默认图标'
     console.log(`Sinan API also failed for ${url}, using default icon`)
-    img.src = '/icon.png'
+    img.src = '/icon.svg'
   }
 }
 

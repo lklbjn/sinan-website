@@ -9,8 +9,10 @@ import RegisterForm from "@/components/Authentication/RegisterForm.vue";
 import DarkModeToggle from '@/components/DarkModeToggle.vue'
 import { Button } from '@/components/ui/button'
 import { BookOpen } from 'lucide-vue-next'
+import { useDynamicIcon } from '@/composables/useDynamicIcon'
 
 const isLogin = ref(true)
+const { iconPath } = useDynamicIcon()
 
 const toggleForm = () => {
   isLogin.value = !isLogin.value
@@ -27,7 +29,7 @@ const openDocs = () => {
       <div class="flex justify-between items-center">
         <a href="#" class="flex items-center gap-2 font-medium">
           <div class="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <img src="/icon.png" alt="This is a Logo">
+            <img :src="iconPath" alt="Sinan Logo" class="w-full h-full object-contain">
           </div>
           Sinan
         </a>

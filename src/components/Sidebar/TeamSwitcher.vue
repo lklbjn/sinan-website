@@ -13,6 +13,8 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 
+import { useDynamicIcon } from '@/composables/useDynamicIcon'
+
 const props = defineProps<{
   teams: {
     name: string
@@ -22,6 +24,7 @@ const props = defineProps<{
 }>()
 
 const activeTeam = ref(props.teams[0])
+const { iconPath } = useDynamicIcon()
 </script>
 
 <template>
@@ -33,9 +36,9 @@ const activeTeam = ref(props.teams[0])
             size="lg"
             class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
           >
-            <div class="flex aspect-square size-8 items-center justify-center rounded-lg  text-sidebar-primary-foreground overflow-hidden">
-              <img src="/icon.png" alt="This is a team logo" class="w-full h-full object-cover" />
-            </div>
+          <div class="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <img :src="iconPath" alt="Sinan Logo" class="w-full h-full object-contain">
+          </div>
             <div class="grid flex-1 text-left text-sm leading-tight">
               <span class="truncate font-medium">
                 {{ activeTeam.name }}

@@ -95,7 +95,7 @@ export function useFavicon() {
     if (systemSettings.value.faviconSource === 'sinan') {
       if (currentSrc.includes('/api/favicon/icon')) {
         console.log(`Sinan API failed for ${url}, using default icon`)
-        return '/icon.png'
+        return '/icon.svg'
       }
     }
     
@@ -111,12 +111,12 @@ export function useFavicon() {
       // 如果Sinan API也失败了，返回默认图标
       if (currentSrc.includes('/api/favicon/icon')) {
         console.log(`Sinan API also failed for ${url}, using default icon`)
-        return '/icon.png'
+        return '/icon.svg'
       }
     }
     
     // 默认返回默认图标
-    return '/icon.png'
+    return '/icon.svg'
   }
   
   return {

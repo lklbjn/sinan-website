@@ -22,8 +22,8 @@
     <meta name="apple-mobile-web-app-title" content="Sinan" />
 
     <!-- Favicon and Icons -->
-    <link rel="icon" type="image/svg+xml" href="/icon.png" />
-    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Open Graph / Facebook -->
@@ -198,6 +198,76 @@
           }
         })();
       }
+    </script>
+
+    <!-- Dark Mode Favicon Script -->
+    <script>
+      (function() {
+        function updateFavicon() {
+          const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const favicon = document.querySelector('link[rel="icon"]');
+          const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+          let browserconfig = document.querySelector('meta[name="msapplication-config"]');
+
+          if (isDarkMode) {
+            // Use white icon for dark mode
+            if (favicon) favicon.href = '/icon-white.svg';
+            if (appleTouchIcon) appleTouchIcon.href = '/icon-white.svg';
+            if (browserconfig) browserconfig.content = '/browserconfig-dark.xml';
+          } else {
+            // Use original icon for light mode
+            if (favicon) favicon.href = '/icon.svg';
+            if (appleTouchIcon) appleTouchIcon.href = '/icon.svg';
+            if (browserconfig) browserconfig.content = '/browserconfig.xml';
+          }
+        }
+
+        // Update favicon on page load
+        updateFavicon();
+
+        // Listen for dark mode changes
+        if (window.matchMedia) {
+          const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+          mediaQuery.addListener(updateFavicon);
+        }
+
+        // Also check for manual theme changes in the app
+        const observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' &&
+                (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
+              // Check if document has dark mode class/attribute
+              const hasDarkClass = document.documentElement.classList.contains('dark') ||
+                                 document.documentElement.getAttribute('data-theme') === 'dark' ||
+                                 document.body.classList.contains('dark');
+
+              const favicon = document.querySelector('link[rel="icon"]');
+              const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+              let browserconfig = document.querySelector('meta[name="msapplication-config"]');
+
+              if (hasDarkClass) {
+                if (favicon) favicon.href = '/icon-white.svg';
+                if (appleTouchIcon) appleTouchIcon.href = '/icon-white.svg';
+                if (browserconfig) browserconfig.content = '/browserconfig-dark.xml';
+              } else {
+                if (favicon) favicon.href = '/icon.svg';
+                if (appleTouchIcon) appleTouchIcon.href = '/icon.svg';
+                if (browserconfig) browserconfig.content = '/browserconfig.xml';
+              }
+            }
+          });
+        });
+
+        // Observe changes to html and body elements
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['class', 'data-theme']
+        });
+        observer.observe(document.body, {
+          attributes: true,
+          attributeFilter: ['class', 'data-theme']
+        });
+      })();
     </script>
   </head>
   <body>

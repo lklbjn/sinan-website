@@ -14,12 +14,12 @@
               <!-- 优先使用存储的图标（HTTP URL 或 base64） -->
               <img v-if="isValidIcon(bookmark.icon)" :src="String(bookmark.icon)" :alt="bookmark.name"
                 class="h-full w-full object-cover select-none"
-                @error="(e) => (e.target as HTMLImageElement).src = '/icon.png'" />
+                @error="(e) => (e.target as HTMLImageElement).src = iconPath" />
               <!-- 其次使用Google Favicon服务，失败时降级到Sinan API -->
               <img v-else-if="getFaviconUrl(bookmark.url)" :src="getFaviconUrl(bookmark.url)" :alt="bookmark.name"
                 class="h-full w-full object-cover select-none" @error="(e) => onFaviconError(e, bookmark.url)" />
               <!-- 默认使用项目Logo -->
-              <img v-else src="/icon.png" :alt="bookmark.name" class="h-full w-full object-cover select-none" />
+              <img v-else :src="iconPath" :alt="bookmark.name" class="h-full w-full object-cover select-none" />
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium truncate select-none">{{ bookmark.name }}</p>
@@ -111,6 +111,7 @@
 <script setup lang="ts">
 import type { BookmarkResp, TagResp } from '@/types/api'
 import { useFavicon } from '@/composables/useFavicon'
+import { useDynamicIcon } from '@/composables/useDynamicIcon'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -148,6 +149,7 @@ const emit = defineEmits<Emits>()
 
 // 使用favicon组合式函数
 const { getFaviconUrl } = useFavicon()
+const { iconPath } = useDynamicIcon()
 
 // 处理favicon加载错误
 const onFaviconError = (event: Event, url: string) => {
@@ -162,7 +164,7 @@ const onFaviconError = (event: Event, url: string) => {
   } else {
     // 如果Sinan API也失败了，使用默认图标
     console.log(`Sinan API also failed for ${url}, using default icon`)
-    img.src = '/icon.png'
+    img.src = iconPath.value
   }
 }
 

@@ -17,8 +17,5 @@ Allow: /
 User-agent: Baiduspider
 Allow: /
 
-# Sitemap location
-Sitemap: https://sinan.example.com/sitemap.xml
-
 # Crawl-delay for politeness
 Crawl-delay: 1

@@ -61,6 +61,21 @@ export interface UserLoginReq {
     password: string
 }
 
+export interface ForgotPasswordReq {
+    email: string
+}
+
+export interface ResetPasswordReq {
+    code: string
+    newPassword: string
+    confirmPassword: string
+}
+
+export interface ChangePasswordReq {
+    currentPassword: string
+    newPassword: string
+}
+
 // 书签相关类型
 export interface BookmarkResp {
     id: string

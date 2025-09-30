@@ -23,6 +23,7 @@ import type {
     ReceivedBookmarkStatsResp,
     ReceivedBookmarkQueryParams, UserInfo, Page, ImportBookmarkResp, SpaceRespSimple, SpaceDragSortParams,
     TagDragSortParams, UserRegister, UserLoginResp, UserLoginReq, UserKeyResp, CreateUserKeyReq, ChangePasswordReq,
+    ForgotPasswordReq, ResetPasswordReq,
     UpdateShareBookmarkReq, RemoveShareBookmarkReq, SearchCollectionUserReq, GetShareUrl, CollectionUserInfoResp,
     CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp
 } from '@/types/api'
@@ -116,6 +117,16 @@ export class UserAPI {
     // 修改密码
     static changePassword(data: ChangePasswordReq) {
         return http.post<string>('/user/change-password', data)
+    }
+
+    // 忘记密码 - 发送重置邮件
+    static forgotPassword(data: ForgotPasswordReq) {
+        return http.post<string>('/user/forgot-password', data)
+    }
+
+    // 重置密码
+    static resetPassword(data: ResetPasswordReq) {
+        return http.post<string>('/user/reset-password', data)
     }
 
     // 修改用户名

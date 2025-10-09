@@ -344,6 +344,11 @@ import Icon from '@/components/Base/Icon.vue'
 import { BookmarkAPI, SpaceAPI, TagAPI, WebsiteAnalysisAPI } from '@/services/api'
 import type { BookmarkResp, SpaceRespSimple, TagResp, NewWebsiteAnalysisResponse } from '@/types/api'
 
+// 扩展的空间类型，包含 isNew 属性
+interface ExtendedSpace extends SpaceRespSimple {
+  isNew?: boolean
+}
+
 const bookmarks = ref<BookmarkResp[]>([])
 const spaces = ref<SpaceRespSimple[]>([])
 const currentBookmark = ref<BookmarkResp | null>(null)
@@ -388,7 +393,7 @@ const progressPercentage = computed(() => {
 
 // 计算包含虚拟命名空间的空间列表
 const spacesWithVirtual = computed(() => {
-  const allSpaces = [...spaces.value]
+  const allSpaces = [...spaces.value] as ExtendedSpace[]
 
   // 如果有虚拟命名空间，添加到列表开头
   if (virtualSpace.value) {
@@ -397,14 +402,14 @@ const spacesWithVirtual = computed(() => {
       name: virtualSpace.value.name,
       icon: 'folder-plus',
       isNew: true
-    } as SpaceRespSimple & { isNew: boolean })
+    })
   }
 
   return allSpaces
 })
 
 // 检查命名空间是否应该高亮
-const shouldHighlightSpace = (space: SpaceRespSimple & { isNew?: boolean }) => {
+const shouldHighlightSpace = (space: ExtendedSpace) => {
   if (!currentBookmark.value) return false
 
   // 如果是虚拟命名空间且匹配当前选择
@@ -873,32 +878,6 @@ const extractDisplayName = (fullId: string): string => {
     return parts[0]?.trim() || fullId
   }
   return fullId
-}
-
-// 从表单数据中提取新空间和新标签用于提交
-const extractNewItemsForSubmission = () => {
-  const newTags: { name: string; color: string }[] = []
-  let newSpace: { name: string } | null = null
-
-  // 检查空间是否为新项目
-  if (currentBookmark.value?.namespaceId && isNewMarkerId(currentBookmark.value.namespaceId)) {
-    const spaceName = extractDisplayName(currentBookmark.value.namespaceId)
-    newSpace = { name: spaceName }
-  }
-
-  // 检查标签是否为新项目
-  if (selectedTags.value.length > 0) {
-    for (const tagId of selectedTags.value) {
-      if (isNewMarkerId(tagId)) {
-        const { name, color } = parseTagString(tagId)
-        if (name) {
-          newTags.push({ name, color })
-        }
-      }
-    }
-  }
-
-  return { newSpace, newTags }
 }
 
 // 处理流式分析结果

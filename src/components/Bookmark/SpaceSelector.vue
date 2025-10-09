@@ -12,7 +12,7 @@
             <Icon v-if="selectedSpace.icon" :name="selectedSpace.icon" class="mr-2 h-4 w-4" />
             {{ selectedSpace.name }}
           </span>
-          <span v-else class="text-muted-foreground">选择空间（可选）</span>
+          <span v-else class="text-muted-foreground">选择空间</span>
           <ChevronsUpDown class="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -119,9 +119,37 @@ const PAGE_SIZE = 10
 const totalCount = ref(0)
 const hasMore = ref(false)
 
+// 检查ID是否为new标记的标识符
+const isNewMarkerId = (id: string): boolean => {
+  return id.includes(':new')
+}
+
+// 提取新项目的显示名称
+const extractDisplayName = (fullId: string): string => {
+  if (isNewMarkerId(fullId)) {
+    const parts = fullId.split(':')
+    return parts[0]?.trim() || fullId
+  }
+  return fullId
+}
+
 const selectedSpace = computed(() => {
   if (!props.modelValue) return null
-  return spaces.value.find(s => s.id === props.modelValue)
+
+  // 首先检查是否为现有的空间
+  const existingSpace = spaces.value.find(s => s.id === props.modelValue)
+  if (existingSpace) return existingSpace
+
+  // 如果不是现有空间，检查是否为new标记的项目
+  if (isNewMarkerId(props.modelValue)) {
+    return {
+      id: props.modelValue,
+      name: extractDisplayName(props.modelValue),
+      icon: null
+    }
+  }
+
+  return null
 })
 
 const fetchSpaces = async (reset = false) => {
@@ -194,6 +222,17 @@ watch(open, async (newValue) => {
 // 监听搜索词变化
 watch(searchQuery, () => {
   currentPage.value = 1
+})
+
+// 监听modelValue变化，确保选中项能正确显示
+watch(() => props.modelValue, (newValue, oldValue) => {
+  if (newValue && newValue !== oldValue) {
+    // 如果当前空间列表中没有选中的空间，则重新加载数据
+    const hasSpace = spaces.value.find(s => s.id === newValue)
+    if (!hasSpace) {
+      fetchSpaces(true)
+    }
+  }
 })
 
 onMounted(() => {

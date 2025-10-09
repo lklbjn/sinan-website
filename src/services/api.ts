@@ -1,4 +1,4 @@
-import {http} from '@/lib/http'
+import {http, getToken} from '@/lib/http'
 import type {
     BookmarkResp,
     SnBookmark,
@@ -25,7 +25,8 @@ import type {
     TagDragSortParams, UserRegister, UserLoginResp, UserLoginReq, UserKeyResp, CreateUserKeyReq, ChangePasswordReq,
     ForgotPasswordReq, ResetPasswordReq,
     UpdateShareBookmarkReq, RemoveShareBookmarkReq, SearchCollectionUserReq, GetShareUrl, CollectionUserInfoResp,
-    CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp
+    CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp,
+    WebsiteAnalysisRequest, WebsiteAnalysisResponse, ResourceUsageInfo
 } from '@/types/api'
 
 export class GithubAPI {
@@ -454,5 +455,226 @@ export class ShareAPI {
 export class FaviconAPI {
     static getFavicon(domain: string, size: number = 32) {
         return `/api/favicon/icon?domain=${encodeURIComponent(domain)}&sz=${size}`
+    }
+}
+
+// 网站分析相关API
+export class WebsiteAnalysisAPI {
+    // 分析网站并匹配分类和标签
+    static analyze(data: WebsiteAnalysisRequest) {
+        return http.post<WebsiteAnalysisResponse>('/website-analysis/analyze', data)
+    }
+
+    // 查询当前用户的AI分析资源使用情况
+    static getResourceUsage() {
+        return http.get<ResourceUsageInfo>('/website-analysis/resource-usage')
+    }
+
+    // 使用AI分析网站并返回分类和标签建议（新接口 - SSE流式输出，使用URL参数传递token）
+    static async analyzeWebsiteStream(url: string, onStatus: (message: string) => void, onBasicInfo: (data: any) => void, onResult: (data: any) => void, onError: (message: string) => void) {
+        const encodedUrl = encodeURIComponent(url)
+        const token = getToken()
+
+        // 构建请求URL，将token作为参数传递（EventSource不支持自定义Header）
+        let requestUrl = `/api/bookmark/analyze-website?url=${encodedUrl}`
+        if (token) {
+            requestUrl += `&token=${encodeURIComponent(token)}`
+        }
+
+        // 首先尝试使用EventSource（真正的SSE实现）
+        try {
+            const eventSource = new EventSource(requestUrl)
+            let isCompleted = false
+
+            // 监听状态事件
+            eventSource.addEventListener('status', (event: any) => {
+                try {
+                    const data = JSON.parse(event.data)
+                    onStatus(data.message)
+                } catch (e) {
+                    console.error('解析status事件失败:', e)
+                }
+            })
+
+            // 监听基本信息事件
+            eventSource.addEventListener('basic_info', (event: any) => {
+                try {
+                    const data = JSON.parse(event.data)
+                    onStatus(data.message)
+                    onBasicInfo(data.data)
+                } catch (e) {
+                    console.error('解析basic_info事件失败:', e)
+                }
+            })
+
+            // 监听结果事件
+            eventSource.addEventListener('result', (event: any) => {
+                try {
+                    const data = JSON.parse(event.data)
+                    onStatus(data.message)
+                    onResult(data.data)
+                    isCompleted = true
+                    eventSource.close()
+                } catch (e) {
+                    console.error('解析result事件失败:', e)
+                }
+            })
+
+            // 监听错误事件
+            eventSource.addEventListener('error', (event: any) => {
+                try {
+                    const data = JSON.parse(event.data)
+                    onError(data.message)
+                } catch (e) {
+                    console.error('解析error事件失败:', e)
+                    onError('分析过程中发生错误')
+                }
+                isCompleted = true
+                eventSource.close()
+            })
+
+            // 连接错误处理
+            eventSource.onerror = (error) => {
+                if (!isCompleted) {
+                    console.warn('EventSource连接失败，尝试fetch方式:', error)
+                    eventSource.close()
+                    // 降级到fetch方式
+                    this.analyzeWebsiteStreamFallback(requestUrl, onStatus, onBasicInfo, onResult, onError)
+                }
+            }
+
+            // 超时处理（5分钟超时）
+            setTimeout(() => {
+                if (!isCompleted) {
+                    eventSource.close()
+                    onError('请求超时，请稍后重试')
+                }
+            }, 5 * 60 * 1000)
+
+        } catch (error) {
+            console.warn('EventSource创建失败，使用fetch方式:', error)
+            // 直接降级到fetch方式
+            this.analyzeWebsiteStreamFallback(requestUrl, onStatus, onBasicInfo, onResult, onError)
+        }
+    }
+
+    // 降级方案：使用fetch实现SSE（支持双种认证方式）
+    private static async analyzeWebsiteStreamFallback(requestUrl: string, onStatus: (message: string) => void, onBasicInfo: (data: any) => void, onResult: (data: any) => void, onError: (message: string) => void) {
+        try {
+            onStatus('正在连接分析服务（fetch模式）...')
+
+            const token = getToken()
+            const headers: Record<string, string> = {
+                'Accept': 'text/event-stream, application/json, */*',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+            }
+
+            // 如果有token，添加Authorization头（双重认证支持）
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`
+            }
+
+            const response = await fetch(requestUrl, {
+                method: 'GET',
+                headers
+            })
+
+            if (!response.ok) {
+                let errorMessage = `HTTP error! status: ${response.status}`
+
+                // 特别处理406错误
+                if (response.status === 406) {
+                    errorMessage = '服务器不支持请求的Accept类型，请联系管理员检查SSE配置'
+                } else if (response.status === 401) {
+                    errorMessage = '认证失败，请重新登录'
+                } else if (response.status === 403) {
+                    errorMessage = '权限不足，无法访问此功能'
+                } else if (response.status === 404) {
+                    errorMessage = '分析接口不存在，请联系管理员'
+                }
+
+                throw new Error(errorMessage)
+            }
+
+            // 检查是否为SSE响应
+            const contentType = response.headers.get('content-type')
+            if (contentType && contentType.includes('text/event-stream') && response.body) {
+                // 处理SSE流
+                const reader = response.body.getReader()
+                const decoder = new TextDecoder()
+
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read()
+                        if (done) break
+
+                        const chunk = decoder.decode(value, { stream: true })
+                        const lines = chunk.split('\n')
+
+                        for (const line of lines) {
+                            if (line.startsWith('event: ')) {
+                                continue
+                            }
+
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.substring(6))
+
+                                    if (data.type === 'status') {
+                                        onStatus(data.message)
+                                    } else if (data.type === 'basic_info') {
+                                        onStatus(data.message)
+                                        onBasicInfo(data.data)
+                                    } else if (data.type === 'result') {
+                                        onStatus(data.message)
+                                        onResult(data.data)
+                                        return
+                                    } else if (data.type === 'error') {
+                                        onError(data.message)
+                                        return
+                                    }
+                                } catch (e) {
+                                    console.error('解析SSE数据失败:', e)
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    reader.releaseLock()
+                }
+            } else {
+                // 普通JSON响应，模拟流式体验
+                onStatus('正在分析网站（非流式模式）...')
+                const data = await response.json()
+
+                if (data.flag && data.data) {
+                    // 模拟流式事件
+                    onStatus('正在获取网站信息...')
+                    setTimeout(() => {
+                        onBasicInfo({
+                            url: data.data.url,
+                            name: data.data.name,
+                            description: data.data.description
+                        })
+                    }, 100)
+
+                    setTimeout(() => {
+                        onStatus('正在使用AI分析...')
+                    }, 500)
+
+                    setTimeout(() => {
+                        onStatus('分析完成')
+                        onResult(data.data)
+                    }, 1000)
+                } else {
+                    throw new Error(data.message || '分析失败')
+                }
+            }
+
+        } catch (error: any) {
+            console.error('流式分析失败:', error)
+            onError(error.message || '分析失败，请稍后重试')
+        }
     }
 }

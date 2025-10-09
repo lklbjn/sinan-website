@@ -25,10 +25,13 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 
-const setCookie = (name: string, value: string, days: number = 7) => {
+const saveToken = (token: string) => {
+  // 使用localStorage保存token，更安全且易于管理
+  localStorage.setItem('token', token)
+  // 为了向后兼容，也可以保存到cookie，但主要使用localStorage
   const expires = new Date()
-  expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000))
-  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`
+  expires.setTime(expires.getTime() + (7 * 24 * 60 * 60 * 1000))
+  document.cookie = `satoken=${token};expires=${expires.toUTCString()};path=/`
 }
 
 const handleGithubLogin = async () => {
@@ -174,7 +177,7 @@ const handlePasskeyLogin = async () => {
     if (response.flag) {
       if (response.data?.tokenInfo?.tokenValue) {
         successMessage.value = '登录成功！正在跳转到首页...'
-        setCookie('satoken', response.data.tokenInfo.tokenValue, 7)
+        saveToken(response.data.tokenInfo.tokenValue)
         console.log('Token已保存到cookie:', response.data.tokenInfo.tokenValue)
         
         // 保存用户信息到localStorage
@@ -245,7 +248,7 @@ const handleLogin = async () => {
     if (response.flag) {
       if (response.data?.tokenInfo?.tokenValue) {
         successMessage.value = '登录成功！正在跳转到首页...'
-        setCookie('satoken', response.data.tokenInfo.tokenValue, 7)
+        saveToken(response.data.tokenInfo.tokenValue)
         console.log('Token已保存到cookie:', response.data.tokenInfo.tokenValue)
         
         // 保存用户信息到localStorage

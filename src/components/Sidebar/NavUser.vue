@@ -22,7 +22,7 @@ import {
   Check,
   Eye,
   EyeOff,
-  Shield,
+  ShieldCheck,
 } from "lucide-vue-next"
 
 import {
@@ -373,7 +373,9 @@ const fetchUserInfo = async () => {
 }
 
 const handleLogout = () => {
-  // 删除 cookie 中的 satoken
+  // 清除所有token存储
+  localStorage.removeItem('token')
+  sessionStorage.removeItem('token')
   document.cookie = 'satoken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
 
   // 跳转到 /auth 页面
@@ -741,7 +743,9 @@ const executeClearData = async () => {
     const response = await UserAPI.clear()
 
     if (response.code === 0) {
-      // 清空成功，删除 cookie 并跳转到登录页
+      // 清空成功，清除所有token存储并跳转到登录页
+      localStorage.removeItem('token')
+      sessionStorage.removeItem('token')
       document.cookie = 'satoken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
       router.push('/auth')
     } else {
@@ -1557,7 +1561,7 @@ onMounted(() => {
             </DropdownMenuItem>
           <DropdownMenuGroup>
             <DropdownMenuItem @click="openSecurityManagementDialog">
-              <Shield/>
+              <ShieldCheck/>
               安全管理
             </DropdownMenuItem>
             <DropdownMenuItem @click="openSystemSettingsDialog">
@@ -2364,7 +2368,7 @@ onMounted(() => {
     <DialogContent class="sm:max-w-xl">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
-          <Shield class="h-5 w-5"/>
+          <ShieldCheck class="h-5 w-5"/>
           安全管理
         </DialogTitle>
         <DialogDescription>

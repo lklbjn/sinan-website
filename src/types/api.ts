@@ -112,6 +112,8 @@ export interface AddBookmarkReq {
     description?: string
     namespaceId?: string
     tagsIds?: string[]
+    newTags?: { name: string; color: string }[]
+    newSpace?: { name: string }
 }
 
 export interface EditBookmarkReq {
@@ -378,3 +380,74 @@ export interface Credential {
   id: string;
   [key: string]: any;
 }
+
+// 网站分析相关类型
+export interface WebsiteAnalysisRequest {
+    url: string
+    spaces?: string[]
+    tags?: string[]
+}
+
+export interface WebsiteAnalysisResponse {
+    url: string
+    name: string
+    description: string
+    spaces: string
+    tags: string[]
+}
+
+export interface ResourceUsageInfo {
+    usageCount: number
+    resourceLimit: number
+    hasResource: boolean
+    remaining?: number
+    usagePercentage?: number
+    displayName?: string
+    resourceType?: string
+}
+
+// 新的网站分析响应类型
+export interface NewWebsiteAnalysisResponse {
+    url: string
+    name: string
+    description: string
+    spaces: string
+    tags: string[]
+}
+
+// 流式分析事件类型
+export interface StreamAnalysisStatusEvent {
+    type: 'status'
+    message: string
+    timestamp: number
+}
+
+export interface StreamAnalysisBasicInfoEvent {
+    type: 'basic_info'
+    message: string
+    data: {
+        url: string
+        name: string
+        description: string
+    }
+    timestamp: number
+}
+
+export interface StreamAnalysisResultEvent {
+    type: 'result'
+    message: string
+    data: NewWebsiteAnalysisResponse
+    timestamp: number
+}
+
+export interface StreamAnalysisErrorEvent {
+    type: 'error'
+    message: string
+    timestamp: number
+}
+
+export type StreamAnalysisEvent =
+    | StreamAnalysisStatusEvent
+    | StreamAnalysisBasicInfoEvent
+    | StreamAnalysisResultEvent
+    | StreamAnalysisErrorEvent

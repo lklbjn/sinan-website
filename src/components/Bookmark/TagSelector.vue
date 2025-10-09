@@ -131,16 +131,55 @@ const availableTags = computed(() => {
   return tags.value.filter(tag => !props.modelValue.includes(tag.id))
 })
 
-// 获取标签名称
-const getTagName = (tagId: string) => {
-  const tag = allTags.value.find(t => t.id === tagId)
-  return tag ? tag.name : tagId
+// 检查ID是否为new标记的标识符
+const isNewMarkerId = (id: string): boolean => {
+  return id.includes(':new')
+}
+
+// 解析标签字符串，提取名称和颜色
+const parseTagString = (tagStr: string): { name: string; color: string; isNew: boolean } => {
+  const parts = tagStr.split(':')
+  const name = parts[0] || ''
+  const isNew = parts[1] === 'new'
+  const color = parts[2] || '#3b82f6'
+
+  return { name, color, isNew }
+}
+
+// 提取新项目的显示名称
+const extractDisplayName = (fullId: string): string => {
+  if (isNewMarkerId(fullId)) {
+    const { name } = parseTagString(fullId)
+    return name.trim() || fullId
+  }
+  return fullId
 }
 
 // 获取标签颜色
 const getTagColor = (tagId: string) => {
   const tag = allTags.value.find(t => t.id === tagId)
-  return tag?.color || '#6b7280'
+  if (tag) return tag.color
+
+  // 如果不是现有标签，检查是否为new标记的项目
+  if (isNewMarkerId(tagId)) {
+    const { color } = parseTagString(tagId)
+    return color
+  }
+
+  return '#6b7280'
+}
+
+// 获取标签名称
+const getTagName = (tagId: string) => {
+  const tag = allTags.value.find(t => t.id === tagId)
+  if (tag) return tag.name
+
+  // 如果不是现有标签，检查是否为new标记的项目
+  if (isNewMarkerId(tagId)) {
+    return extractDisplayName(tagId)
+  }
+
+  return tagId
 }
 
 // 获取所有标签（用于显示已选择标签的名称和颜色）
@@ -227,6 +266,23 @@ watch(open, async (newValue) => {
 // 监听搜索词变化
 watch(searchQuery, () => {
   currentPage.value = 1
+})
+
+// 监听modelValue变化，确保选中项能正确显示
+watch(() => props.modelValue, (newValue, oldValue) => {
+  if (newValue && JSON.stringify(newValue) !== JSON.stringify(oldValue)) {
+    // 如果有新选中的标签在allTags中不存在，则重新加载所有标签
+    const hasMissingTags = newValue.some(tagId => !allTags.value.find(t => t.id === tagId))
+    if (hasMissingTags) {
+      fetchAllTags()
+    }
+
+    // 如果有新选中的标签在可用标签列表中不存在，则重新加载标签列表
+    const hasMissingAvailableTags = newValue.some(tagId => !tags.value.find(t => t.id === tagId))
+    if (hasMissingAvailableTags) {
+      fetchTags(true)
+    }
+  }
 })
 
 // 监听标签刷新事件

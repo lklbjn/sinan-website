@@ -327,12 +327,6 @@ const handleLogin = async () => {
         {{ loading ? '登录中...' : '登录' }}
       </Button>
 
-      <div class="text-center">
-        <a href="#" class="text-sm text-muted-foreground hover:text-primary underline underline-offset-4" @click.prevent="emit('switch-to-forgot')">
-          忘记密码？
-        </a>
-      </div>
-
       <div class="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
         <span class="bg-background text-muted-foreground relative z-10 px-2">
           或者继续使用

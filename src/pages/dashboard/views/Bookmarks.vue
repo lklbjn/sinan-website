@@ -220,6 +220,48 @@
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
               </button>
+              <button @click="analyzeBookmark" class="p-1.5 bg-background/80 border border-border/60 rounded-md cursor-pointer transition-all duration-200 ease-in-out text-muted-foreground hover:bg-gradient-to-r hover:from-yellow-400/20 hover:to-amber-300/10 hover:border-yellow-400/70 hover:text-yellow-600 hover:shadow-sm hover:shadow-yellow-400/25 hover:scale-105 active:scale-95" :class="{ 'animate-pulse bg-yellow-400/10 border-yellow-400/50 text-yellow-600': isAnalyzing }" :title="isAnalyzing ? '分析中...' : 'AI分析'">
+                <!-- AI分析图标 -->
+                <svg v-if="!isAnalyzing" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path
+                    d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" />
+                  <path d="M20 2v4" />
+                  <path d="M22 4h-4" />
+                  <circle cx="4" cy="20" r="2" />
+                </svg>
+
+                <!-- 加载中的旋转图标 -->
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                  class="animate-spin">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+              </button>
+
+              <!-- 自动AI分析开关 -->
+              <div class="flex items-center gap-2 px-2 py-1 bg-muted/50 border border-border/60 rounded-md">
+                <span class="text-xs text-muted-foreground whitespace-nowrap">自动AI分析</span>
+                <button
+                  @click="autoAIAnalysis = !autoAIAnalysis"
+                  class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-primary"
+                  :class="autoAIAnalysis ? 'bg-primary' : 'bg-muted'"
+                  :title="autoAIAnalysis ? '关闭自动AI分析' : '开启自动AI分析'"
+                >
+                  <span
+                    class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                    :class="autoAIAnalysis ? 'translate-x-5' : 'translate-x-0.5'"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分析状态显示 -->
+          <div v-if="analysisStatus" class="px-5 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 border-b border-yellow-200/50">
+            <div class="flex items-center gap-2 text-sm text-yellow-700">
+              <span class="animate-spin rounded-full h-3 w-3 border-b border-yellow-600"></span>
+              <span>{{ analysisStatus }}</span>
             </div>
           </div>
           <div class="flex-1 relative bg-background">
@@ -253,14 +295,33 @@
         </div>
         <div class="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2.5 overflow-y-auto pr-1 py-2">
           <button
-            v-for="space in spaces"
+            v-for="space in spacesWithVirtual"
             :key="space.id"
             class="flex flex-col items-center gap-2 px-3 py-4 bg-muted/40 border border-border/60 rounded-lg cursor-pointer transition-all hover:bg-primary/10 hover:border-primary hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/10"
+            :class="{
+              'bg-gradient-to-r from-yellow-100/30 to-amber-100/20 border-yellow-300/50 shadow-sm shadow-yellow-300/20 hover:from-yellow-100/40 hover:to-amber-100/30 hover:border-yellow-400/60 hover:shadow-yellow-300/30': shouldHighlightSpace(space),
+              'animate-pulse': shouldHighlightSpace(space) && space.isNew
+            }"
             @click="assignToSpace(space.id)"
-            :title="space.name"
+            :title="space.name + (space.isNew ? ' (新建)' : '')"
           >
-            <Icon v-if="space.icon" :name="space.icon" :size="20" />
-            <span class="text-sm font-medium text-foreground text-center break-words leading-tight">{{ space.name }}</span>
+            <!-- 虚拟命名空间的特殊图标 -->
+            <div v-if="space.isNew" class="relative">
+              <Icon name="folder-plus" :size="20" />
+              <div class="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+            </div>
+            <Icon v-else-if="space.icon" :name="space.icon" :size="20" />
+            <Icon v-else name="folder" :size="20" />
+
+            <!-- 命名空间名称 -->
+            <span class="text-sm font-medium text-foreground text-center break-words leading-tight">
+              {{ space.name }}
+            </span>
+
+            <!-- 新建标记 -->
+            <div v-if="space.isNew" class="text-xs text-yellow-600 font-medium bg-yellow-100/50 px-2 py-0.5 rounded-full">
+              新建
+            </div>
           </button>
         </div>
       </div>
@@ -280,8 +341,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick, watch, onUnmounted } from 'vue'
 import Icon from '@/components/Base/Icon.vue'
-import { BookmarkAPI, SpaceAPI, TagAPI } from '@/services/api'
-import type { BookmarkResp, SpaceRespSimple, TagResp } from '@/types/api'
+import { BookmarkAPI, SpaceAPI, TagAPI, WebsiteAnalysisAPI } from '@/services/api'
+import type { BookmarkResp, SpaceRespSimple, TagResp, NewWebsiteAnalysisResponse } from '@/types/api'
 
 const bookmarks = ref<BookmarkResp[]>([])
 const spaces = ref<SpaceRespSimple[]>([])
@@ -305,10 +366,59 @@ const tagSearchQuery = ref('')
 const filteredTags = ref<TagResp[]>([])
 const tagSearchInput = ref<HTMLInputElement | null>(null)
 
+// 流式分析相关状态
+const isAnalyzing = ref(false)
+const analysisStatus = ref('')
+const isAnalysisAborted = ref(false)
+
+// 存储完整的AI分析结果用于提交
+const aiAnalysisSpaces = ref<string>('')
+const aiAnalysisTags = ref<string[]>([])
+
+// 虚拟命名空间相关状态
+const virtualSpace = ref<{ id: string; name: string; isNew: boolean } | null>(null)
+
+// 自动AI分析开关状态
+const autoAIAnalysis = ref(false)
+
 const progressPercentage = computed(() => {
   if (totalCount.value === 0) return 0
   return (processedCount.value / totalCount.value) * 100
 })
+
+// 计算包含虚拟命名空间的空间列表
+const spacesWithVirtual = computed(() => {
+  const allSpaces = [...spaces.value]
+
+  // 如果有虚拟命名空间，添加到列表开头
+  if (virtualSpace.value) {
+    allSpaces.unshift({
+      id: virtualSpace.value.id,
+      name: virtualSpace.value.name,
+      icon: 'folder-plus',
+      isNew: true
+    } as SpaceRespSimple & { isNew: boolean })
+  }
+
+  return allSpaces
+})
+
+// 检查命名空间是否应该高亮
+const shouldHighlightSpace = (space: SpaceRespSimple & { isNew?: boolean }) => {
+  if (!currentBookmark.value) return false
+
+  // 如果是虚拟命名空间且匹配当前选择
+  if (virtualSpace.value && virtualSpace.value.id === space.id) {
+    return true
+  }
+
+  // 如果是现有命名空间且匹配当前选择
+  if (currentBookmark.value.namespaceId === space.id) {
+    return true
+  }
+
+  return false
+}
 
 // 获取标签颜色的辅助函数
 const getTagColor = (tagName: string): string => {
@@ -325,6 +435,9 @@ watch(currentBookmark, (newBookmark) => {
     selectedTags.value = []
     selectedTagNames.value = []
   }
+
+  // 清除虚拟命名空间
+  virtualSpace.value = null
 }, { immediate: true })
 
 const fetchBookmarksWithoutSpace = async () => {
@@ -380,7 +493,7 @@ const saveBookmarkName = async () => {
     cancelEditName()
     return
   }
-  
+
   try {
     await BookmarkAPI.update({
       id: currentBookmark.value.id,
@@ -388,6 +501,13 @@ const saveBookmarkName = async () => {
     })
     currentBookmark.value.name = editedName.value.trim()
     isEditingName.value = false
+
+    // 如果开启了自动AI分析，自动触发分析
+    if (autoAIAnalysis.value) {
+      setTimeout(() => {
+        analyzeBookmark()
+      }, 500) // 延迟500ms触发，让界面先更新
+    }
   } catch (error) {
     console.error('Failed to update bookmark name:', error)
     cancelEditName()
@@ -414,7 +534,7 @@ const saveBookmarkDescription = async () => {
     cancelEditDescription()
     return
   }
-  
+
   try {
     await BookmarkAPI.update({
       id: currentBookmark.value.id,
@@ -422,6 +542,13 @@ const saveBookmarkDescription = async () => {
     })
     currentBookmark.value.description = editedDescription.value.trim()
     isEditingDescription.value = false
+
+    // 如果开启了自动AI分析，自动触发分析
+    if (autoAIAnalysis.value) {
+      setTimeout(() => {
+        analyzeBookmark()
+      }, 500) // 延迟500ms触发，让界面先更新
+    }
   } catch (error) {
     console.error('Failed to update bookmark description:', error)
     cancelEditDescription()
@@ -436,24 +563,31 @@ const cancelEditDescription = () => {
 // 处理标签变化
 const handleTagsChange = async (newTagNames: string[]) => {
   if (!currentBookmark.value) return
-  
+
   // 根据标签名称找到对应的标签 ID
   const newTagIds = newTagNames.map(name => {
     const existingTag = availableTags.value.find(tag => tag.name === name)
     return existingTag ? existingTag.id : name // 如果找不到，暂时用名称代替
   })
-  
+
   selectedTags.value = newTagIds
-  
+
   try {
     await BookmarkAPI.update({
       id: currentBookmark.value.id,
       tags: newTagIds
     })
-    
+
     // 更新本地书签的标签信息
     if (currentBookmark.value) {
       currentBookmark.value.tags = availableTags.value.filter(tag => newTagIds.includes(tag.id))
+    }
+
+    // 如果开启了自动AI分析，自动触发分析
+    if (autoAIAnalysis.value) {
+      setTimeout(() => {
+        analyzeBookmark()
+      }, 500) // 延迟500ms触发，让界面先更新
     }
   } catch (error) {
     console.error('Failed to update bookmark tags:', error)
@@ -509,31 +643,69 @@ const removeTag = (tagName: string) => {
 
 const assignToSpace = async (spaceId: string) => {
   if (!currentBookmark.value) return
-  
+
   try {
     const updateData: any = {
       id: currentBookmark.value.id,
       namespaceId: spaceId
     }
-    
+
     if (editedName.value.trim() && editedName.value !== currentBookmark.value.name) {
       updateData.name = editedName.value.trim()
     }
-    
+
     if (editedDescription.value.trim() !== (currentBookmark.value.description || '')) {
       updateData.description = editedDescription.value.trim()
     }
-    
+
     // 添加标签信息
     if (selectedTags.value.length > 0) {
       updateData.tags = selectedTags.value
     }
-    
+
+    // 检查是否包含新的空间或标签
+    const hasNewSpace = isNewMarkerId(spaceId)
+    const hasNewTags = selectedTags.value.some(tagId => isNewMarkerId(tagId))
+
+    // 如果有新空间，提取新空间数据
+    if (hasNewSpace) {
+      const spaceName = extractDisplayName(spaceId)
+      updateData.newSpace = { name: spaceName }
+      // 从 namespaceId 中移除，因为已经有了 newSpace
+      delete updateData.namespaceId
+    }
+
+    // 如果有新标签，提取新标签数据
+    if (hasNewTags) {
+      const newTags = selectedTags.value
+        .filter(tagId => isNewMarkerId(tagId))
+        .map(tagId => {
+          const { name, color } = parseTagString(tagId)
+          return { name, color }
+        })
+      updateData.newTags = newTags
+
+      // 从 tags 中移除新标签，只保留现有标签ID
+      updateData.tags = selectedTags.value.filter(tagId => !isNewMarkerId(tagId))
+    }
+
     await BookmarkAPI.update(updateData)
-    
+
     bookmarks.value = bookmarks.value.filter(b => b.id !== currentBookmark.value!.id)
     processedCount.value++
-    
+
+    // 清除虚拟命名空间
+    virtualSpace.value = null
+
+    // 如果包含新的空间或标签，刷新相关列表
+    if (hasNewSpace || hasNewTags) {
+      console.log('检测到新项目，刷新空间和标签列表...')
+      await Promise.all([
+        fetchSpaces(),
+        fetchTags()
+      ])
+    }
+
     if (bookmarks.value.length > 0) {
       // 保持当前索引，如果超出范围则调整到最后一个
       if (currentIndex.value >= bookmarks.value.length) {
@@ -545,6 +717,13 @@ const assignToSpace = async (spaceId: string) => {
       editedDescription.value = ''
       isEditingDescription.value = false
       iframeKey.value++
+
+      // 如果开启了自动AI分析，自动对下一个书签进行分析
+      if (autoAIAnalysis.value && currentBookmark.value) {
+        setTimeout(() => {
+          analyzeBookmark()
+        }, 800) // 延迟800ms触发，让界面先更新
+      }
     } else {
       currentBookmark.value = null
       currentIndex.value = 0
@@ -620,6 +799,319 @@ const deleteBookmark = async () => {
 
 const handleIframeError = () => {
   console.warn('Failed to load URL preview for:', currentBookmark.value?.url)
+}
+
+// 检查是否为内网地址
+const isInternalUrl = (url: string): boolean => {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+    const hostname = urlObj.hostname.toLowerCase()
+
+    // 检查是否为localhost或本地IP
+    const internalPatterns = [
+      /^localhost(\:\d+)?$/,
+      /^127\.0\.0\.1(\:\d+)?$/,
+      /^0\.0\.0\.0(\:\d+)?$/,
+      /^::1(\:\d+)?$/,
+      /^192\.168\./,
+      /^10\./,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+      /^169\.254\./,
+      /^100\./,
+      /^30\./
+    ]
+
+    return internalPatterns.some(pattern => pattern.test(hostname))
+  } catch {
+    return false
+  }
+}
+
+// 检查是否为有效的网站URL
+const isValidWebsiteUrl = (url: string): boolean => {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+
+    // 检查协议是否为http或https
+    if (!['http:', 'https:'].includes(urlObj.protocol)) {
+      return false
+    }
+
+    // 检查hostname是否有效
+    const hostname = urlObj.hostname
+    if (!hostname || hostname.includes('..') || hostname.includes('//')) {
+      return false
+    }
+
+    // 检查是否为常见的网站域名格式
+    const domainPattern = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/
+    return domainPattern.test(hostname)
+  } catch {
+    return false
+  }
+}
+
+// 解析标签字符串，提取名称和颜色
+const parseTagString = (tagStr: string): { name: string; color: string; isNew: boolean } => {
+  const parts = tagStr.split(':')
+  const name = parts[0] || ''
+  const isNew = parts[1] === 'new'
+  const color = parts[2] || '#3b82f6'
+
+  return { name, color, isNew }
+}
+
+// 检查ID是否为new标记的标识符
+const isNewMarkerId = (id: string): boolean => {
+  return id.includes(':new')
+}
+
+// 提取新项目的显示名称
+const extractDisplayName = (fullId: string): string => {
+  if (isNewMarkerId(fullId)) {
+    const parts = fullId.split(':')
+    return parts[0]?.trim() || fullId
+  }
+  return fullId
+}
+
+// 从表单数据中提取新空间和新标签用于提交
+const extractNewItemsForSubmission = () => {
+  const newTags: { name: string; color: string }[] = []
+  let newSpace: { name: string } | null = null
+
+  // 检查空间是否为新项目
+  if (currentBookmark.value?.namespaceId && isNewMarkerId(currentBookmark.value.namespaceId)) {
+    const spaceName = extractDisplayName(currentBookmark.value.namespaceId)
+    newSpace = { name: spaceName }
+  }
+
+  // 检查标签是否为新项目
+  if (selectedTags.value.length > 0) {
+    for (const tagId of selectedTags.value) {
+      if (isNewMarkerId(tagId)) {
+        const { name, color } = parseTagString(tagId)
+        if (name) {
+          newTags.push({ name, color })
+        }
+      }
+    }
+  }
+
+  return { newSpace, newTags }
+}
+
+// 处理流式分析结果
+const processAnalysisResult = async (analysisData: NewWebsiteAnalysisResponse) => {
+  if (!currentBookmark.value) return
+
+  // 存储分析结果用于提交
+  aiAnalysisSpaces.value = analysisData.spaces || ''
+  aiAnalysisTags.value = analysisData.tags || []
+
+  // 获取当前所有的空间和标签
+  const [spacesResponse, tagsResponse] = await Promise.all([
+    SpaceAPI.getAllList(),
+    TagAPI.getAllList()
+  ])
+
+  const spacesData = spacesResponse as any
+  const tagsData = tagsResponse as any
+
+  const allSpaces = spacesData?.data?.records || spacesData?.data || []
+  const allTags = tagsData?.data || []
+
+  // 处理基本信息填充 - AI分析结果总是覆盖表单值
+  if (analysisData.name) {
+    currentBookmark.value.name = analysisData.name
+    editedName.value = analysisData.name
+  }
+  if (analysisData.description) {
+    currentBookmark.value.description = analysisData.description
+    editedDescription.value = analysisData.description
+  }
+
+  // 分析完成后显示一个简短的成功提示
+  setTimeout(() => {
+    console.log('AI分析完成，结果已应用到书签')
+  }, 100)
+
+  // 处理空间匹配，包括new标记的空间
+  if (analysisData.spaces && analysisData.spaces.trim()) {
+    const spaceParts = analysisData.spaces.split(':')
+    const spaceName = spaceParts[0]?.trim()
+    const isSpaceNew = spaceParts[1] === 'new'
+
+    if (spaceName) {
+      const matchedSpace = allSpaces.find((s: SpaceRespSimple) =>
+        s.name.toLowerCase() === spaceName.toLowerCase()
+      )
+
+      if (matchedSpace) {
+        currentBookmark.value.namespaceId = matchedSpace.id
+      } else if (isSpaceNew) {
+        // 新空间，使用完整标识符作为ID，名称部分作为显示名称
+        currentBookmark.value.namespaceId = analysisData.spaces
+
+        // 创建虚拟命名空间
+        virtualSpace.value = {
+          id: analysisData.spaces,
+          name: spaceName,
+          isNew: true
+        }
+      }
+    }
+  } else {
+    // 清除虚拟命名空间
+    virtualSpace.value = null
+  }
+
+  // 处理标签匹配，包括new标记的标签
+  if (analysisData.tags && Array.isArray(analysisData.tags) && analysisData.tags.length > 0) {
+    // 保留当前已选择的标签
+    const finalSelectedTagIds = new Set<string>(selectedTags.value)
+    const finalSelectedTagNames = new Set<string>(selectedTagNames.value)
+
+    for (const tagStr of analysisData.tags) {
+      if (tagStr && tagStr.trim()) {
+        const { name: tagName, isNew } = parseTagString(tagStr)
+
+        if (tagName) {
+          const matchedTag = allTags.find((t: TagResp) =>
+            t.name.toLowerCase() === tagName.toLowerCase()
+          )
+
+          if (matchedTag) {
+            finalSelectedTagIds.add(matchedTag.id)
+            finalSelectedTagNames.add(matchedTag.name)
+          } else if (isNew) {
+            // 新标签，使用完整标识符作为ID
+            finalSelectedTagIds.add(tagStr)
+            finalSelectedTagNames.add(tagName)
+          }
+        }
+      }
+    }
+
+    // 设置已匹配的标签，保留现有选择
+    selectedTags.value = Array.from(finalSelectedTagIds)
+    selectedTagNames.value = Array.from(finalSelectedTagNames)
+  }
+
+  // AI分析完成，直接应用到输入框，无需确认对话框
+}
+
+// AI 智能分析（流式版本，支持认证）
+const analyzeBookmark = async () => {
+  if (!currentBookmark.value) return
+
+  // 如果已经在分析中，不重复触发
+  if (isAnalyzing.value) {
+    console.log('AI分析正在进行中，跳过重复触发')
+    return
+  }
+
+  const url = currentBookmark.value.url
+
+  if (!url) {
+    alert('书签URL为空')
+    return
+  }
+
+  // 检查是否为内网地址
+  if (isInternalUrl(url)) {
+    alert('不支持分析内网地址')
+    return
+  }
+
+  // 检查是否为有效的网站URL
+  if (!isValidWebsiteUrl(url)) {
+    alert('请输入有效的网站网址')
+    return
+  }
+
+  // 清空已选择的空间和标签，为AI分析结果做准备
+  if (currentBookmark.value) {
+    currentBookmark.value.namespaceId = ''
+    selectedTags.value = []
+    selectedTagNames.value = []
+  }
+
+  // 清除虚拟命名空间
+  virtualSpace.value = null
+
+  // 如果已经在分析中，标记为中止
+  if (isAnalyzing.value) {
+    isAnalysisAborted.value = true
+    isAnalyzing.value = false
+    analysisStatus.value = ''
+    return
+  }
+
+  try {
+    isAnalyzing.value = true
+    isAnalysisAborted.value = false
+    analysisStatus.value = '正在连接分析服务...'
+
+    // 使用fetch实现SSE，支持认证
+    await WebsiteAnalysisAPI.analyzeWebsiteStream(
+      url,
+      // onStatus
+      (message: string) => {
+        if (!isAnalysisAborted.value) {
+          analysisStatus.value = message
+        }
+      },
+      // onBasicInfo
+      (data: any) => {
+        if (!isAnalysisAborted.value && currentBookmark.value) {
+          // 立即填充网站基本信息，提升用户体验 - AI分析结果总是覆盖表单值
+          if (data.name) {
+            currentBookmark.value.name = data.name
+            editedName.value = data.name
+          }
+          if (data.description) {
+            currentBookmark.value.description = data.description
+            editedDescription.value = data.description
+          }
+        }
+      },
+      // onResult
+      async (data: any) => {
+        if (!isAnalysisAborted.value) {
+          analysisStatus.value = '分析完成，正在处理结果...'
+
+          // 处理完整的分析结果
+          await processAnalysisResult(data)
+
+          // 清理状态
+          analysisStatus.value = ''
+          isAnalyzing.value = false
+        }
+      },
+      // onError
+      (message: string) => {
+        console.error('分析错误:', message)
+        if (!isAnalysisAborted.value) {
+          alert(message || '分析过程中发生错误')
+
+          // 清理状态
+          analysisStatus.value = ''
+          isAnalyzing.value = false
+        }
+      }
+    )
+
+  } catch (error: any) {
+    console.error('启动分析失败:', error)
+    if (!isAnalysisAborted.value) {
+      alert(error?.message || '启动分析失败，请稍后重试')
+    }
+
+    // 清理状态
+    analysisStatus.value = ''
+    isAnalyzing.value = false
+  }
 }
 
 // 点击外部关闭下拉菜单

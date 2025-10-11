@@ -102,7 +102,16 @@
                 </button>
               </div>
               <div v-if="filteredTags.length > defaultDisplayCount && !tagSearchQuery" class="mt-1 text-xs text-muted-foreground">
-                显示 {{ getDisplayTags(bookmark).length }}/{{ filteredTags.length }} 个标签
+                <div class="flex items-center justify-between gap-2">
+                  <span>显示 {{ getDisplayTags(bookmark).length }}/{{ filteredTags.length }} 个标签</span>
+                  <button
+                    v-if="shouldShowViewAllButton(bookmark)"
+                    @click.stop="toggleShowAllTags(bookmark.id)"
+                    class="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
+                  >
+                    {{ showAllTags.has(bookmark.id) ? '收起' : '查看全部' }}
+                  </button>
+                </div>
               </div>
               </div>
             </div>
@@ -181,6 +190,7 @@ const { iconPath } = useDynamicIcon()
 // 标签搜索和显示逻辑
 const tagSearchQuery = ref('')
 const defaultDisplayCount = 10
+const showAllTags = ref(new Set<string>()) // 记录哪些书签显示全部标签
 
 // 过滤标签（基于搜索词）
 const filteredTags = computed(() => {
@@ -213,12 +223,35 @@ const getDisplayTags = (bookmark: BookmarkResp) => {
     return sorted
   }
 
+  // 如果选择了显示全部标签，显示所有标签
+  if (showAllTags.value.has(bookmark.id)) {
+    return sorted
+  }
+
   // 分离已选择和未选择的标签
   const selected = sorted.filter(tag => bookmark.tags?.some((t: TagResp) => t.id === tag.id))
   const unselected = sorted.filter(tag => !bookmark.tags?.some((t: TagResp) => t.id === tag.id))
 
   // 返回所有已选择的标签 + 最多10个未选择的标签
   return [...selected, ...unselected.slice(0, defaultDisplayCount)]
+}
+
+// 切换显示全部标签
+const toggleShowAllTags = (bookmarkId: string) => {
+  if (showAllTags.value.has(bookmarkId)) {
+    showAllTags.value.delete(bookmarkId)
+  } else {
+    showAllTags.value.add(bookmarkId)
+  }
+}
+
+// 判断是否显示查看全部按钮
+const shouldShowViewAllButton = (bookmark: BookmarkResp) => {
+  if (tagSearchQuery.value) return false // 搜索时不显示
+  if (showAllTags.value.has(bookmark.id)) return false // 已显示全部时隐藏
+
+  const displayTags = getDisplayTags(bookmark)
+  return displayTags.length < filteredTags.value.length
 }
 
 // 处理favicon加载错误

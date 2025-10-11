@@ -14,14 +14,26 @@
           </div>
           <p class="text-muted-foreground">{{ currentSpace?.description || '暂无描述' }}</p>
         </div>
-        <button
-          @click="handleRefresh"
-          :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
-          :disabled="isRefreshing"
-          title="刷新书签"
-        >
-          <RefreshCw class="h-5 w-5" />
-        </button>
+        <div class="flex gap-1">
+          <button
+            @click="handleRefresh"
+            :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
+            :disabled="isRefreshing"
+            title="刷新书签"
+          >
+            <RefreshCw class="h-5 w-5" />
+          </button>
+          <button
+            @click="toggleSort"
+            class="p-2 rounded-md hover:bg-muted transition-colors"
+            :title="`按${sortBy === 'name' ? '名称' : '点击次数'}${sortOrder === 'asc' ? '升序' : '降序'}排序`"
+          >
+            <ArrowUp v-if="sortBy === 'name' && sortOrder === 'asc'" class="h-5 w-5" />
+            <ArrowDown v-else-if="sortBy === 'name' && sortOrder === 'desc'" class="h-5 w-5" />
+            <ArrowUp v-else-if="sortBy === 'usage' && sortOrder === 'asc'" class="h-5 w-5" />
+            <ArrowDown v-else class="h-5 w-5" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -115,7 +127,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { RefreshCw } from 'lucide-vue-next'
+import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-vue-next'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.id as string)
@@ -134,16 +146,43 @@ const showDeleteDialog = ref(false)
 const deletingBookmarkId = ref<string | null>(null)
 const editingBookmark = ref<BookmarkResp | null>(null)
 
-// 过滤后的书签
+// 排序相关状态
+const sortBy = ref<'name' | 'usage'>('name') // 'name' | 'usage'
+const sortOrder = ref<'asc' | 'desc'>('asc') // 'asc' | 'desc'
+
+// 过滤和排序后的书签
 const filteredBookmarks = computed(() => {
-  if (!searchQuery.value) return bookmarks.value
-  
-  const query = searchQuery.value.toLowerCase()
-  return bookmarks.value.filter(bookmark => 
-    bookmark.name?.toLowerCase().includes(query) ||
-    bookmark.url?.toLowerCase().includes(query) ||
-    bookmark.description?.toLowerCase().includes(query)
-  )
+  let filtered = bookmarks.value
+
+  // 搜索过滤
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(bookmark =>
+      bookmark.name?.toLowerCase().includes(query) ||
+      bookmark.url?.toLowerCase().includes(query) ||
+      bookmark.description?.toLowerCase().includes(query)
+    )
+  }
+
+  // 排序
+  return filtered.sort((a: BookmarkResp, b: BookmarkResp) => {
+    let aValue: string | number
+    let bValue: string | number
+
+    if (sortBy.value === 'name') {
+      aValue = a.name || ''
+      bValue = b.name || ''
+    } else { // usage
+      aValue = a.num || 0
+      bValue = b.num || 0
+    }
+
+    if (sortOrder.value === 'asc') {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
+    }
+  })
 })
 
 
@@ -353,6 +392,17 @@ const handleBookmarkAdded = () => {
 const handleBookmarkUpdated = () => {
   fetchBookmarks()
   editingBookmark.value = null
+}
+
+// 切换排序
+const toggleSort = () => {
+  if (sortBy.value === 'name') {
+    sortBy.value = 'usage'
+    sortOrder.value = 'desc' // 点击次数默认降序
+  } else {
+    sortBy.value = 'name'
+    sortOrder.value = 'asc' // 名称默认升序
+  }
 }
 
 // 刷新数据

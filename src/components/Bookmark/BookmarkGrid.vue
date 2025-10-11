@@ -46,49 +46,75 @@
           </div>
         </ContextMenuTrigger>
 
-        <ContextMenuContent class="w-64" v-if="!bookmark.subscribed">
-          <ContextMenuItem @click="$emit('toggle-star', bookmark)" class="flex items-center">
-            <Star
-              :class="['mr-2 h-4 w-4', bookmark.star ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground']" />
-            <span>{{ bookmark.star ? '取消星标' : '添加星标' }}</span>
-          </ContextMenuItem>
-          <ContextMenuItem @click="$emit('edit-bookmark', bookmark)" class="flex items-center">
-            <Edit class="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>编辑书签</span>
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <!-- 标签选择区域 -->
-          <div class="px-2 py-2">
-            <div class="flex items-center gap-2 mb-2">
-              <Tag class="h-4 w-4 text-muted-foreground" />
-              <span class="text-sm font-medium">标签</span>
-              <button v-if="showRefreshTags" @click.stop="$emit('refresh-tags')"
-                class="p-1 rounded hover:bg-muted transition-colors" title="刷新标签列表">
-                <RefreshCw class="h-3 w-3 text-muted-foreground" />
-              </button>
+        <ContextMenuContent class="w-64 min-w-56 max-w-96 resize overflow-hidden relative flex flex-col" v-if="!bookmark.subscribed">
+          <!-- 固定的顶部菜单项 -->
+          <div class="flex-shrink-0">
+            <ContextMenuItem @click="$emit('toggle-star', bookmark)" class="flex items-center">
+              <Star
+                :class="['mr-2 h-4 w-4', bookmark.star ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground']" />
+              <span>{{ bookmark.star ? '取消星标' : '添加星标' }}</span>
+            </ContextMenuItem>
+            <ContextMenuItem @click="$emit('edit-bookmark', bookmark)" class="flex items-center">
+              <Edit class="mr-2 h-4 w-4 text-muted-foreground" />
+              <span>编辑书签</span>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </div>
+        <!-- 可滚动的标签区域 -->
+          <div class="flex-1 overflow-hidden">
+            <!-- 标签选择区域 -->
+            <div class="px-2 py-2 h-full flex flex-col">
+              <div class="flex items-center gap-2 mb-2 flex-shrink-0">
+                <Tag class="h-4 w-4 text-muted-foreground" />
+                <span class="text-sm font-medium">标签</span>
+                <button v-if="showRefreshTags" @click.stop="$emit('refresh-tags')"
+                  class="p-1 rounded hover:bg-muted transition-colors" title="刷新标签列表">
+                  <RefreshCw class="h-3 w-3 text-muted-foreground" />
+                </button>
+              </div>
+
+              <!-- 标签搜索框 -->
+              <div class="relative mb-2 flex-shrink-0">
+              <input
+                v-model="tagSearchQuery"
+                @click.stop
+                placeholder="搜索标签..."
+                class="w-full px-2 py-1 text-xs border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <Search v-if="!tagSearchQuery" class="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             </div>
-            <div v-if="availableTags.length === 0" class="text-sm text-muted-foreground">
-              暂无可用标签
+
+            <div v-if="filteredTags.length === 0" class="text-sm text-muted-foreground">
+              {{ tagSearchQuery ? '未找到匹配的标签' : '暂无可用标签' }}
             </div>
-            <div v-else class="flex flex-wrap gap-1">
-              <button v-for="tag in availableTags" :key="tag.id"
-                @pointerdown.stop.prevent="$emit('toggle-tag', bookmark, tag.id, $event)" :class="[
-                  'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors',
-                  bookmark.tags?.some(t => t.id === tag.id)
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'bg-muted hover:bg-muted/80 border border-transparent'
-                ]">
-                <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: tag.color || '#52525b' }" />
-                <span>{{ tag.name }}</span>
-                <Check v-if="bookmark.tags?.some(t => t.id === tag.id)" class="h-3 w-3 ml-0.5" />
-              </button>
+            <div v-else class="flex-1 overflow-y-auto min-h-0">
+                <div class="flex flex-wrap gap-1">
+                <button v-for="tag in getDisplayTags(bookmark)" :key="tag.id"
+                  @pointerdown.stop.prevent="$emit('toggle-tag', bookmark, tag.id, $event)" :class="[
+                    'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors',
+                    bookmark.tags?.some((t: TagResp) => t.id === tag.id)
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'bg-muted hover:bg-muted/80 border border-transparent'
+                  ]">
+                  <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: tag.color || '#52525b' }" />
+                  <span>{{ tag.name }}</span>
+                  <Check v-if="bookmark.tags?.some((t: TagResp) => t.id === tag.id)" class="h-3 w-3 ml-0.5" />
+                </button>
+              </div>
+              <div v-if="filteredTags.length > defaultDisplayCount && !tagSearchQuery" class="mt-1 text-xs text-muted-foreground">
+                显示 {{ getDisplayTags(bookmark).length }}/{{ filteredTags.length }} 个标签
+              </div>
+              </div>
             </div>
           </div>
-          <ContextMenuSeparator />
-          <ContextMenuItem @click="$emit('delete-bookmark', bookmark.id)" class="flex items-center text-red-600">
-            <Trash2 class="mr-2 h-4 w-4" />
-            <span>删除书签</span>
-          </ContextMenuItem>
+          <!-- 固定的底部删除按钮 -->
+          <div class="flex-shrink-0">
+            <ContextMenuSeparator />
+            <ContextMenuItem @click="$emit('delete-bookmark', bookmark.id)" class="flex items-center text-red-600">
+              <Trash2 class="mr-2 h-4 w-4" />
+              <span>删除书签</span>
+            </ContextMenuItem>
+          </div>
         </ContextMenuContent>
       </ContextMenu>
     </template>
@@ -109,6 +135,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onUnmounted } from 'vue'
 import type { BookmarkResp, TagResp } from '@/types/api'
 import { useFavicon } from '@/composables/useFavicon'
 import { useDynamicIcon } from '@/composables/useDynamicIcon'
@@ -120,7 +147,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 
-import { Edit, Trash2, Star, RefreshCw, Tag, Check } from 'lucide-vue-next'
+import { Edit, Trash2, Star, RefreshCw, Tag, Check, Search } from 'lucide-vue-next'
 
 interface Props {
   bookmarks: BookmarkResp[]
@@ -139,7 +166,7 @@ interface Emits {
   (e: 'refresh-tags'): void
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   emptyStateText: '',
   emptyStateSubtext: '',
   showRefreshTags: false
@@ -150,6 +177,49 @@ const emit = defineEmits<Emits>()
 // 使用favicon组合式函数
 const { getFaviconUrl } = useFavicon()
 const { iconPath } = useDynamicIcon()
+
+// 标签搜索和显示逻辑
+const tagSearchQuery = ref('')
+const defaultDisplayCount = 10
+
+// 过滤标签（基于搜索词）
+const filteredTags = computed(() => {
+  if (!tagSearchQuery.value) {
+    return props.availableTags
+  }
+
+  const query = tagSearchQuery.value.toLowerCase()
+  return props.availableTags.filter((tag: TagResp) =>
+    tag.name.toLowerCase().includes(query)
+  )
+})
+
+// 获取显示的标签（对于特定书签）
+const getDisplayTags = (bookmark: BookmarkResp) => {
+  const sorted = [...filteredTags.value].sort((a: TagResp, b: TagResp) => {
+    const aSelected = bookmark.tags?.some((t: TagResp) => t.id === a.id)
+    const bSelected = bookmark.tags?.some((t: TagResp) => t.id === b.id)
+
+    // 已选中的标签置顶
+    if (aSelected && !bSelected) return -1
+    if (!aSelected && bSelected) return 1
+
+    // 同类型按名称排序（支持中文排序）
+    return a.name.localeCompare(b.name, 'zh-CN')
+  })
+
+  // 如果有搜索词，显示所有匹配结果
+  if (tagSearchQuery.value) {
+    return sorted
+  }
+
+  // 分离已选择和未选择的标签
+  const selected = sorted.filter(tag => bookmark.tags?.some((t: TagResp) => t.id === tag.id))
+  const unselected = sorted.filter(tag => !bookmark.tags?.some((t: TagResp) => t.id === tag.id))
+
+  // 返回所有已选择的标签 + 最多10个未选择的标签
+  return [...selected, ...unselected.slice(0, defaultDisplayCount)]
+}
 
 // 处理favicon加载错误
 const onFaviconError = (event: Event, url: string) => {
@@ -182,4 +252,65 @@ const isValidIcon = (icon: number | string): boolean => {
 const handleBookmarkClick = (bookmark: BookmarkResp) => {
   emit('click-bookmark', bookmark)
 }
+
+// 拖拽调整宽度功能
+const contextMenuRef = ref<HTMLElement>()
+const isResizing = ref(false)
+const startX = ref(0)
+const startWidth = ref(0)
+
+const startResize = (event: MouseEvent) => {
+  event.preventDefault()
+  isResizing.value = true
+  startX.value = event.clientX
+
+  // 获取当前ContextMenu的宽度
+  const contextMenu = contextMenuRef.value
+  if (contextMenu) {
+    startWidth.value = contextMenu.getBoundingClientRect().width
+  }
+
+  // 添加全局事件监听
+  document.addEventListener('mousemove', handleResize, { passive: false })
+  document.addEventListener('mouseup', stopResize, { passive: false })
+
+  // 防止选择文本和右键菜单
+  document.body.style.userSelect = 'none'
+  document.body.style.webkitUserSelect = 'none'
+  event.preventDefault()
+}
+
+const handleResize = (event: MouseEvent) => {
+  if (!isResizing.value || !contextMenuRef.value) return
+
+  event.preventDefault()
+  const deltaX = event.clientX - startX.value
+  const newWidth = Math.max(224, Math.min(384, startWidth.value + deltaX)) // min-w-56 to max-w-96
+
+  // 直接设置当前ContextMenu的宽度
+  contextMenuRef.value.style.width = `${newWidth}px`
+  contextMenuRef.value.style.minWidth = `${newWidth}px`
+  contextMenuRef.value.style.maxWidth = `${newWidth}px`
+}
+
+const stopResize = (event?: MouseEvent) => {
+  if (event) {
+    event.preventDefault()
+  }
+
+  isResizing.value = false
+
+  // 移除全局事件监听
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+
+  // 恢复默认样式
+  document.body.style.userSelect = ''
+  document.body.style.webkitUserSelect = ''
+}
+
+// 组件卸载时清理事件监听
+onUnmounted(() => {
+  stopResize()
+})
 </script>

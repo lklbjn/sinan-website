@@ -127,7 +127,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-vue-next'
+import { RefreshCw, ArrowUp, ArrowDown } from 'lucide-vue-next'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.id as string)

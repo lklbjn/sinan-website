@@ -144,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import type { BookmarkResp, TagResp } from '@/types/api'
 import { useFavicon } from '@/composables/useFavicon'
 import { useDynamicIcon } from '@/composables/useDynamicIcon'
@@ -286,64 +286,4 @@ const handleBookmarkClick = (bookmark: BookmarkResp) => {
   emit('click-bookmark', bookmark)
 }
 
-// 拖拽调整宽度功能
-const contextMenuRef = ref<HTMLElement>()
-const isResizing = ref(false)
-const startX = ref(0)
-const startWidth = ref(0)
-
-const startResize = (event: MouseEvent) => {
-  event.preventDefault()
-  isResizing.value = true
-  startX.value = event.clientX
-
-  // 获取当前ContextMenu的宽度
-  const contextMenu = contextMenuRef.value
-  if (contextMenu) {
-    startWidth.value = contextMenu.getBoundingClientRect().width
-  }
-
-  // 添加全局事件监听
-  document.addEventListener('mousemove', handleResize, { passive: false })
-  document.addEventListener('mouseup', stopResize, { passive: false })
-
-  // 防止选择文本和右键菜单
-  document.body.style.userSelect = 'none'
-  document.body.style.webkitUserSelect = 'none'
-  event.preventDefault()
-}
-
-const handleResize = (event: MouseEvent) => {
-  if (!isResizing.value || !contextMenuRef.value) return
-
-  event.preventDefault()
-  const deltaX = event.clientX - startX.value
-  const newWidth = Math.max(224, Math.min(384, startWidth.value + deltaX)) // min-w-56 to max-w-96
-
-  // 直接设置当前ContextMenu的宽度
-  contextMenuRef.value.style.width = `${newWidth}px`
-  contextMenuRef.value.style.minWidth = `${newWidth}px`
-  contextMenuRef.value.style.maxWidth = `${newWidth}px`
-}
-
-const stopResize = (event?: MouseEvent) => {
-  if (event) {
-    event.preventDefault()
-  }
-
-  isResizing.value = false
-
-  // 移除全局事件监听
-  document.removeEventListener('mousemove', handleResize)
-  document.removeEventListener('mouseup', stopResize)
-
-  // 恢复默认样式
-  document.body.style.userSelect = ''
-  document.body.style.webkitUserSelect = ''
-}
-
-// 组件卸载时清理事件监听
-onUnmounted(() => {
-  stopResize()
-})
 </script>

@@ -26,7 +26,8 @@ import type {
     ForgotPasswordReq, ResetPasswordReq,
     UpdateShareBookmarkReq, RemoveShareBookmarkReq, SearchCollectionUserReq, GetShareUrl, CollectionUserInfoResp,
     CollectionSpaceReq,PasskeyRegistrationReq,ChangePasskeyReq,PasskeyResp,
-    WebsiteAnalysisRequest, WebsiteAnalysisResponse, ResourceUsageInfo
+    WebsiteAnalysisRequest, WebsiteAnalysisResponse, ResourceUsageInfo,
+    CreateFeedbackReq, FeedbackCreateResp
 } from '@/types/api'
 
 export class GithubAPI {
@@ -676,5 +677,13 @@ export class WebsiteAnalysisAPI {
             console.error('流式分析失败:', error)
             onError(error.message || '分析失败，请稍后重试')
         }
+    }
+}
+
+// 反馈相关API
+export class FeedbackAPI {
+    // 创建反馈
+    static create(data: CreateFeedbackReq) {
+        return http.post<FeedbackCreateResp>('/feedback', data)
     }
 }

@@ -451,3 +451,14 @@ export type StreamAnalysisEvent =
     | StreamAnalysisBasicInfoEvent
     | StreamAnalysisResultEvent
     | StreamAnalysisErrorEvent
+
+// 反馈相关类型
+export interface CreateFeedbackReq {
+    contact: string  // 联系方式（邮箱或手机号）
+    content: string  // 反馈内容
+}
+
+export interface FeedbackCreateResp {
+    feedbackId: string  // 反馈ID
+    message: string     // 成功消息
+}

@@ -1,32 +1,15 @@
 <script lang="ts">
-export const description = "A two column login page with a cover image."
+export const description = "A password reset page."
 </script>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import LoginForm from "@/components/Authentication/LoginForm.vue";
-import RegisterForm from "@/components/Authentication/RegisterForm.vue";
-import ForgetPassword from "@/components/Authentication/ForgetPassword.vue";
+import ResetPassword from "@/components/Authentication/ResetPassword.vue";
 import DarkModeToggle from '@/components/DarkModeToggle.vue'
 import { Button } from '@/components/ui/button'
 import { BookOpen } from 'lucide-vue-next'
 import { useDynamicIcon } from '@/composables/useDynamicIcon'
 
-// 表单状态: 'login' | 'register' | 'forgot'
-const currentForm = ref<'login' | 'register' | 'forgot'>('login')
 const { iconPath } = useDynamicIcon()
-
-const switchToLogin = () => {
-  currentForm.value = 'login'
-}
-
-const switchToRegister = () => {
-  currentForm.value = 'register'
-}
-
-const switchToForgot = () => {
-  currentForm.value = 'forgot'
-}
 
 const openDocs = () => {
   window.open('https://docs.sinan.host/', '_blank')
@@ -59,9 +42,7 @@ const openDocs = () => {
       </div>
       <div class="flex flex-1 items-center justify-center">
         <div class="w-full max-w-xs">
-          <LoginForm v-if="currentForm === 'login'" @switch-to-register="switchToRegister" @switch-to-forgot="switchToForgot"/>
-          <RegisterForm v-else-if="currentForm === 'register'" @switch-to-login="switchToLogin"/>
-          <ForgetPassword v-else @switch-to-login="switchToLogin"/>
+          <ResetPassword />
         </div>
       </div>
     </div>

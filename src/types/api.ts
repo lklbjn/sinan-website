@@ -61,6 +61,21 @@ export interface UserLoginReq {
     password: string
 }
 
+export interface ForgotPasswordReq {
+    email: string
+}
+
+export interface ResetPasswordReq {
+    code: string
+    newPassword: string
+    confirmPassword: string
+}
+
+export interface ChangePasswordReq {
+    currentPassword: string
+    newPassword: string
+}
+
 // 书签相关类型
 export interface BookmarkResp {
     id: string
@@ -70,6 +85,7 @@ export interface BookmarkResp {
     description: string
     url: string
     icon: number | string
+    subscribed: boolean
     num: number
     star: boolean
     ignoreDuplicate?: boolean
@@ -97,6 +113,8 @@ export interface AddBookmarkReq {
     description?: string
     namespaceId?: string
     tagsIds?: string[]
+    newTags?: { name: string; color: string }[]
+    newSpace?: { name: string }
 }
 
 export interface EditBookmarkReq {
@@ -274,6 +292,21 @@ export interface ImportBookmarkResp {
     message: string
 }
 
+// 忽略组相关类型
+export interface IgnoredGroupResp {
+    groupName: string
+    createdAt: string
+    updatedAt: string
+}
+
+export interface AddIgnoredGroupReq {
+    groupName: string
+}
+
+export interface SetIgnoredGroupsReq {
+    groupNames: string[]
+}
+
 // 用户Key相关类型
 export interface UserKeyResp {
     id: string
@@ -347,4 +380,86 @@ export interface PasskeyRegistrationReq {
 export interface Credential {
   id: string;
   [key: string]: any;
+}
+
+// 网站分析相关类型
+export interface WebsiteAnalysisRequest {
+    url: string
+    spaces?: string[]
+    tags?: string[]
+}
+
+export interface WebsiteAnalysisResponse {
+    url: string
+    name: string
+    description: string
+    spaces: string
+    tags: string[]
+}
+
+export interface ResourceUsageInfo {
+    usageCount: number
+    resourceLimit: number
+    hasResource: boolean
+    remaining?: number
+    usagePercentage?: number
+    displayName?: string
+    resourceType?: string
+}
+
+// 新的网站分析响应类型
+export interface NewWebsiteAnalysisResponse {
+    url: string
+    name: string
+    description: string
+    spaces: string
+    tags: string[]
+}
+
+// 流式分析事件类型
+export interface StreamAnalysisStatusEvent {
+    type: 'status'
+    message: string
+    timestamp: number
+}
+
+export interface StreamAnalysisBasicInfoEvent {
+    type: 'basic_info'
+    message: string
+    data: {
+        url: string
+        name: string
+        description: string
+    }
+    timestamp: number
+}
+
+export interface StreamAnalysisResultEvent {
+    type: 'result'
+    message: string
+    data: NewWebsiteAnalysisResponse
+    timestamp: number
+}
+
+export interface StreamAnalysisErrorEvent {
+    type: 'error'
+    message: string
+    timestamp: number
+}
+
+export type StreamAnalysisEvent =
+    | StreamAnalysisStatusEvent
+    | StreamAnalysisBasicInfoEvent
+    | StreamAnalysisResultEvent
+    | StreamAnalysisErrorEvent
+
+// 反馈相关类型
+export interface CreateFeedbackReq {
+    contact: string  // 联系方式（邮箱或手机号）
+    content: string  // 反馈内容
+}
+
+export interface FeedbackCreateResp {
+    feedbackId: string  // 反馈ID
+    message: string     // 成功消息
 }

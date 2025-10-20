@@ -136,7 +136,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <SidebarGroup>
+  <SidebarGroup class="group-data-[collapsible=icon]:hidden">
     <SidebarGroupLabel>订阅的空间</SidebarGroupLabel>
     <SidebarMenu>
       <div v-if="loading" class="px-2 py-1 text-sm text-muted-foreground">

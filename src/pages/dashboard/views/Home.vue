@@ -4,36 +4,14 @@
     <div class="rounded-lg border p-6 relative">
       <div class="flex items-start justify-between mb-2">
         <h1 class="text-3xl font-bold">Welcome back!</h1>
-        <div class="flex items-center gap-1">
-          <ContextMenu>
-            <ContextMenuTrigger as-child>
-              <button
-                  @click="handleRefresh"
-                  :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
-                  :disabled="isRefreshing"
-                  title="刷新书签"
-              >
-                <RefreshCw class="h-5 w-5"/>
-              </button>
-            </ContextMenuTrigger>
-            <ContextMenuContent class="w-48">
-              <ContextMenuItem @click="showFaviconReloadDialog = true" class="flex items-center">
-                <Settings class="mr-2 h-4 w-4"/>
-                <span>重新加载所有图标</span>
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-          
-          <button
-              @click="checkDuplicateBookmarks"
-              class="p-2 rounded-md hover:bg-muted transition-colors"
-              title="检查重复书签"
-          >
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
-            </svg>
-          </button>
-        </div>
+        <button
+            @click="handleRefresh"
+            :class="['p-2 rounded-md hover:bg-muted transition-colors', isRefreshing && 'animate-spin']"
+            :disabled="isRefreshing"
+            title="刷新书签"
+        >
+          <RefreshCw class="h-5 w-5"/>
+        </button>
       </div>
       <p class="text-muted-foreground mb-6">你从哪个应用开始以下是你最常用的应用</p>
 
@@ -65,130 +43,19 @@
       </div>
 
       <!-- App Grid -->
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-        <ContextMenu v-for="bookmark in filteredBookmarks" :key="bookmark.id">
-          <ContextMenuTrigger as-child>
-            <div
-                @click="openBookmark(bookmark.url, bookmark.id)"
-                :class="[
-                'flex items-center gap-3 p-3 rounded-lg border bg-card text-card-foreground transition-all cursor-pointer',
-                bookmark.star 
-                  ? 'shadow-[0_0_15px_rgba(251,191,36,0.2)] hover:shadow-[0_0_20px_rgba(251,191,36,0.3)] border-amber-200/50' 
-                  : 'shadow-sm hover:shadow-md'
-              ]"
-            >
-              <div class="flex h-8 w-8 items-center justify-center rounded-md bg-muted overflow-hidden">
-                <!-- 优先使用存储的图标（HTTP URL 或 base64） -->
-                <img
-                    v-if="isValidIcon(bookmark.icon)"
-                    :src="String(bookmark.icon)"
-                    :alt="bookmark.name"
-                    class="h-full w-full object-cover"
-                    @error="(e) => (e.target as HTMLImageElement).src = '/icon.png'"
-                />
-                <!-- 其次使用Google Favicon服务，失败时降级到Sinan API -->
-                <img
-                    v-else-if="getFaviconUrl(bookmark.url)"
-                    :src="getFaviconUrl(bookmark.url)"
-                    :alt="bookmark.name"
-                    class="h-full w-full object-cover"
-                    @error="(e) => onFaviconError(e, bookmark.url)"
-                />
-                <!-- 默认使用项目Logo -->
-                <img
-                    v-else
-                    src="/icon.png"
-                    :alt="bookmark.name"
-                    class="h-full w-full object-cover"
-                />
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">{{ bookmark.name }}</p>
-                <p class="text-xs text-muted-foreground truncate">{{ bookmark.url }}</p>
-              </div>
-              <!-- 标签颜色指示器 -->
-              <div v-if="bookmark.tags && bookmark.tags.length > 0" class="flex items-center -space-x-2 flex-shrink-0">
-                <div
-                    v-for="(tag, index) in bookmark.tags.slice(0, 3)"
-                    :key="tag.id"
-                    class="h-4 w-4 rounded-full border-2 border-white dark:border-gray-800"
-                    :style="{ backgroundColor: tag.color || '#52525b', zIndex: bookmark.tags.length - index }"
-                    :title="tag.name"
-                />
-                <div
-                    v-if="bookmark.tags.length > 3"
-                    class="h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 bg-gray-400 flex items-center justify-center"
-                    :title="`还有 ${bookmark.tags.length - 3} 个标签`"
-                >
-                  <span class="text-[8px] text-white font-semibold">+{{ bookmark.tags.length - 3 }}</span>
-                </div>
-              </div>
-            </div>
-          </ContextMenuTrigger>
-
-          <ContextMenuContent class="w-64">
-            <ContextMenuItem @click="toggleBookmarkStar(bookmark)" class="flex items-center">
-              <Star
-                  :class="['mr-2 h-4 w-4', bookmark.star ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground']"/>
-              <span>{{ bookmark.star ? '取消星标' : '添加星标' }}</span>
-            </ContextMenuItem>
-            <ContextMenuItem @click="editBookmark(bookmark)" class="flex items-center">
-              <Edit class="mr-2 h-4 w-4 text-muted-foreground"/>
-              <span>编辑书签</span>
-            </ContextMenuItem>
-            <ContextMenuSeparator/>
-            <!-- 标签选择区域 -->
-            <div class="px-2 py-2">
-              <div class="flex items-center gap-2 mb-2">
-                <Tag class="h-4 w-4 text-muted-foreground"/>
-                <span class="text-sm font-medium">标签</span>
-              </div>
-              <div v-if="availableTags.length === 0" class="text-sm text-muted-foreground">
-                暂无可用标签
-              </div>
-              <div v-else class="flex flex-wrap gap-1">
-                <button
-                    v-for="tag in availableTags"
-                    :key="tag.id"
-                    @pointerdown.stop.prevent="handleTagToggle(bookmark, tag.id, $event)"
-                    :class="[
-                      'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors',
-                      bookmark.tags?.some(t => t.id === tag.id)
-                        ? 'bg-primary/10 text-primary border border-primary/20'
-                        : 'bg-muted hover:bg-muted/80 border border-transparent'
-                    ]"
-                >
-                  <div
-                      class="w-2 h-2 rounded-full"
-                      :style="{ backgroundColor: tag.color || '#52525b' }"
-                  />
-                  <span>{{ tag.name }}</span>
-                  <Check
-                      v-if="bookmark.tags?.some(t => t.id === tag.id)"
-                      class="h-3 w-3 ml-0.5"
-                  />
-                </button>
-              </div>
-            </div>
-            <ContextMenuSeparator/>
-            <ContextMenuItem @click="confirmDeleteBookmark(bookmark.id)" class="flex items-center text-red-600">
-              <Trash2 class="mr-2 h-4 w-4"/>
-              <span>删除书签</span>
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-
-        <!-- Empty State -->
-        <div v-if="filteredBookmarks.length === 0"
-             class="col-span-full flex flex-col items-center justify-center py-12 text-muted-foreground">
-          <svg class="h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
-          </svg>
-          <p>{{ searchQuery ? '没有找到匹配的书签' : '暂无常用书签' }}</p>
-          <p class="text-sm">{{ searchQuery ? '请尝试其他搜索词' : '添加一些书签开始使用吧' }}</p>
-        </div>
-      </div>
+      <BookmarkGrid
+        v-else
+        :bookmarks="filteredBookmarks"
+        :available-tags="availableTags"
+        :empty-state-text="searchQuery ? '没有找到匹配的书签' : '暂无常用书签'"
+        :empty-state-subtext="searchQuery ? '请尝试其他搜索词' : '添加一些书签开始使用吧'"
+        :tooltip-delay="500"
+        @click-bookmark="(bookmark) => openBookmark(bookmark.url, bookmark.id)"
+        @toggle-star="toggleBookmarkStar"
+        @edit-bookmark="editBookmark"
+        @delete-bookmark="confirmDeleteBookmark"
+        @toggle-tag="handleTagToggle"
+      />
     </div>
 
 
@@ -223,305 +90,6 @@
       </AlertDialogContent>
     </AlertDialog>
   </div>
-
-  <!-- 重新加载图标确认对话框 -->
-  <Dialog v-model:open="showFaviconReloadDialog">
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>重新加载书签图标</DialogTitle>
-        <DialogDescription>
-          确定要重新加载所有书签的图标吗？您可以选择是否强制刷新图标。
-        </DialogDescription>
-      </DialogHeader>
-      
-      <div class="flex items-center space-x-2 py-4">
-        <input
-          id="force-reload"
-          type="checkbox"
-          v-model="forceReloadFavicon"
-          class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-        />
-        <label for="force-reload" class="text-sm font-medium leading-none">
-          强制刷新（重新下载所有图标）
-        </label>
-      </div>
-
-      <DialogFooter>
-        <Button variant="outline" @click="showFaviconReloadDialog = false">
-          取消
-        </Button>
-        <Button @click="reloadAllFavicons" :disabled="isReloadingFavicons">
-          <RefreshCw class="h-4 w-4 mr-2 animate-spin" v-if="isReloadingFavicons" />
-          {{ isReloadingFavicons ? '正在重新加载...' : '确认重新加载' }}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
-
-  <!-- 重复书签检查模态框 -->
-  <div v-if="showDuplicateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div class="bg-background rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-      <div class="p-6 border-b border-border/40 flex justify-between items-center">
-        <h3 class="text-lg font-semibold text-foreground">重复书签检查</h3>
-        <button @click="closeDuplicateModal" class="p-1.5 hover:bg-muted rounded-md transition-colors">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-
-      <!-- 查询参数控件 - 现代化设计 -->
-      <div class="px-6 py-4 border-b border-border/40 bg-muted/10">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div class="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
-            <!-- 域名层级选择器 -->
-            <div class="flex flex-col gap-1 min-w-[120px]">
-              <label class="text-sm font-medium text-foreground flex items-center gap-1">
-                域名层级
-                <span class="text-muted-foreground text-xs" title="检查重复时基于的域名层级">ⓘ</span>
-              </label>
-              <select 
-                v-model="duplicateCheckLevel" 
-                :disabled="stronglyCorrelated"
-                :class="[
-                  'px-3 py-2 text-sm border rounded-md transition-all duration-200',
-                  stronglyCorrelated 
-                    ? 'border-muted bg-muted/50 text-muted-foreground cursor-not-allowed' 
-                    : 'border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary'
-                ]"
-              >
-                <option :value="2">二级域名 (2)</option>
-                <option :value="3">三级域名 (3)</option>
-                <option :value="4">四级域名 (4)</option>
-              </select>
-            </div>
-
-            <!-- 开关控件容器 -->
-            <div class="flex items-center gap-6">
-              <!-- 包含已忽略重复项开关 -->
-              <div class="flex items-center gap-2">
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    v-model="ignoreDuplicate"
-                    :disabled="stronglyCorrelated"
-                    class="sr-only peer"
-                  >
-                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer transition-colors duration-200"
-                    :class="{
-                      'bg-muted/50 cursor-not-allowed': stronglyCorrelated,
-                      'bg-primary': !stronglyCorrelated && ignoreDuplicate,
-                      'bg-gray-300': !stronglyCorrelated && !ignoreDuplicate
-                    }"
-                  >
-                    <div class="absolute top-[2px] left-[2px] bg-white rounded-full h-5 w-5 transition-all duration-200"
-                      :class="{ 'translate-x-full': ignoreDuplicate && !stronglyCorrelated }"
-                    ></div>
-                  </div>
-                </label>
-                <div class="flex flex-col">
-                  <span class="text-sm font-medium text-foreground">包含已忽略项</span>
-                  <span class="text-xs text-muted-foreground" :class="{ 'opacity-50': stronglyCorrelated }">
-                    {{ ignoreDuplicate ? '显示所有重复项' : '隐藏已忽略项' }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- 仅强相关重复项开关 -->
-              <div class="flex items-center gap-2">
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    v-model="stronglyCorrelated"
-                    class="sr-only peer"
-                  >
-                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer transition-colors duration-200"
-                    :class="{
-                      'bg-blue-600': stronglyCorrelated,
-                      'bg-gray-300': !stronglyCorrelated
-                    }"
-                  >
-                    <div class="absolute top-[2px] left-[2px] bg-white rounded-full h-5 w-5 transition-all duration-200"
-                      :class="{ 'translate-x-full': stronglyCorrelated }"
-                    ></div>
-                  </div>
-                </label>
-                <div class="flex flex-col">
-                  <span class="text-sm font-medium text-foreground">仅强相关</span>
-                  <span class="text-xs text-muted-foreground">
-                    {{ stronglyCorrelated ? '仅完全匹配URL' : '包含相似URL' }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 重新检查按钮 -->
-          <button
-            @click="checkDuplicateBookmarks"
-            :disabled="duplicateLoading"
-            class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md min-w-[100px]"
-          >
-            <span v-if="duplicateLoading" class="flex items-center gap-2">
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              检查中...
-            </span>
-            <span v-else>重新检查</span>
-          </button>
-        </div>
-
-        <!-- 状态提示 -->
-        <div v-if="stronglyCorrelated" class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-          <p class="text-xs text-blue-800 flex items-center gap-1">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-            </svg>
-            强相关模式已启用：仅检查完全相同的URL，忽略域名层级和忽略状态设置
-          </p>
-        </div>
-      </div>
-      
-      <div class="flex-1 overflow-y-auto p-6">
-        <div v-if="duplicateLoading" class="flex items-center justify-center py-8">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span class="ml-3 text-muted-foreground">正在检查重复书签...</span>
-        </div>
-        
-        <div v-else-if="duplicateBookmarks.size === 0" class="text-center py-8 text-muted-foreground">
-          未发现重复书签
-        </div>
-        
-        <div v-else class="space-y-6">
-          <div v-for="[domain, bookmarks] in duplicateBookmarks" :key="domain" class="border border-border/40 rounded-lg overflow-hidden">
-            <div class="bg-muted/30 px-4 py-3 border-b border-border/40">
-              <h4 class="font-medium text-foreground">{{ domain }}</h4>
-              <p class="text-sm text-muted-foreground mt-1">发现 {{ bookmarks.length }} 个重复书签</p>
-            </div>
-            
-            <div class="divide-y divide-border/40">
-              <div v-for="bookmark in bookmarks" :key="bookmark.id" 
-                   :class="['p-4 flex items-center justify-between', bookmark.ignoreDuplicate && 'bg-muted/30']">
-                <div class="flex-1 min-w-0">
-                  <!-- 编辑状态下的名称输入框 -->
-                  <div v-if="editingBookmarks[bookmark.id]" class="mb-2">
-                    <input
-                      v-model="editingBookmarks[bookmark.id].name"
-                      type="text"
-                      placeholder="书签名称"
-                      class="w-full px-3 py-1 text-sm border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                  <!-- 正常状态下的名称显示 -->
-                  <h5 v-else class="font-medium text-foreground truncate">{{ bookmark.name }}</h5>
-                  
-                  <!-- 编辑状态下的URL输入框 -->
-                  <div v-if="editingBookmarks[bookmark.id]" class="mb-2">
-                    <input
-                      v-model="editingBookmarks[bookmark.id].url"
-                      type="text"
-                      placeholder="书签URL"
-                      class="w-full px-3 py-1 text-sm border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                  <!-- 正常状态下的URL显示 -->
-                  <p v-else class="text-sm text-muted-foreground truncate mt-1">{{ bookmark.url }}</p>
-                  
-                  <p v-if="bookmark.description" class="text-sm text-muted-foreground mt-1 line-clamp-2">{{ bookmark.description }}</p>
-                  
-                  <!-- 标签展示 -->
-                  <div v-if="bookmark.tags && bookmark.tags.length > 0" class="flex flex-wrap gap-1 mt-2">
-                    <span
-                      v-for="tag in bookmark.tags"
-                      :key="tag.id"
-                      class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-colors"
-                      :style="{ 
-                        backgroundColor: tag.color ? `${tag.color}20` : 'rgba(82, 82, 91, 0.1)',
-                        borderColor: tag.color ? `${tag.color}40` : 'rgba(82, 82, 91, 0.2)',
-                        color: tag.color ? tag.color : '#52525b'
-                      }"
-                    >
-                      <div
-                        class="w-2 h-2 rounded-full"
-                        :style="{ backgroundColor: tag.color || '#52525b' }"
-                      />
-                      {{ tag.name }}
-                    </span>
-                  </div>
-                </div>
-                
-                <div class="flex items-center gap-2 ml-4">
-                  <a :href="bookmark.url" target="_blank" class="p-2 hover:bg-muted rounded-md transition-colors" title="打开书签">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                      <polyline points="15 3 21 3 21 9"></polyline>
-                      <line x1="10" y1="14" x2="21" y2="3"></line>
-                    </svg>
-                  </a>
-                  
-                  <button 
-                    @click="ignoreDuplicateBookmark(bookmark.id)" 
-                    :disabled="bookmark.ignoreDuplicate"
-                    :class="[
-                      'p-2 rounded-md transition-colors',
-                      bookmark.ignoreDuplicate 
-                        ? 'bg-muted/50 text-muted-foreground cursor-not-allowed' 
-                        : 'hover:bg-primary/10 text-primary'
-                    ]" 
-                    :title="bookmark.ignoreDuplicate ? '已忽略重复检查' : '忽略重复检查'"
-                  >
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <line x1="15" y1="9" x2="9" y2="15"></line>
-                      <line x1="9" y1="9" x2="15" y2="15"></line>
-                    </svg>
-                  </button>
-                  
-                  <button 
-                    v-if="!editingBookmarks[bookmark.id]"
-                    @click="startEditing(bookmark)" 
-                    class="p-2 hover:bg-blue-500/10 text-blue-500 rounded-md transition-colors" 
-                    title="修改书签"
-                  >
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                    </svg>
-                  </button>
-                  
-                  <button 
-                    v-if="editingBookmarks[bookmark.id]"
-                    @click="saveBookmarkEdit(bookmark.id)" 
-                    class="p-2 hover:bg-green-500/10 text-green-500 rounded-md transition-colors" 
-                    title="保存修改"
-                  >
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                      <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                  </button>
-                  
-                  <button @click="deleteDuplicateBookmark(bookmark.id)" class="p-2 hover:bg-destructive/10 text-destructive rounded-md transition-colors" title="删除书签">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="p-6 border-t border-border/40 flex justify-end">
-        <button @click="closeDuplicateModal" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-          关闭
-        </button>
-      </div>
-    </div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -530,14 +98,7 @@ import {BookmarkAPI, TagAPI} from '@/services/api'
 import type {BookmarkResp, TagResp} from '@/types/api'
 import AddBookmarkModal from '@/components/Bookmark/AddBookmarkModal.vue'
 import EditBookmarkDialog from '@/components/Bookmark/EditBookmarkDialog.vue'
-import { useFavicon } from '@/composables/useFavicon'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu'
+import BookmarkGrid from '@/components/Bookmark/BookmarkGrid.vue'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -548,16 +109,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {Button} from '@/components/ui/button'
-import {Edit, Trash2, Star, RefreshCw, Tag, Check, Settings} from 'lucide-vue-next'
+import {RefreshCw} from 'lucide-vue-next'
 
 // 响应式数据
 const mostVisitedBookmarks = ref<BookmarkResp[]>([])
@@ -577,22 +129,6 @@ const editingBookmark = ref<BookmarkResp | null>(null)
 const pageSize = ref(40) // 显示更多书签以便搜索
 const totalCount = ref(0)
 const totalPages = ref(0)
-
-// 重新加载图标相关状态
-const showFaviconReloadDialog = ref(false)
-const forceReloadFavicon = ref(false)
-const isReloadingFavicons = ref(false)
-
-// 重复书签检查相关状态
-const duplicateBookmarks = ref<Map<string, any[]>>(new Map())
-const showDuplicateModal = ref(false)
-const duplicateLoading = ref(false)
-const duplicateCheckLevel = ref(3)
-const ignoreDuplicate = ref(false)
-const stronglyCorrelated = ref(true)
-
-// 编辑书签相关状态
-const editingBookmarks = ref<Record<string, { name: string; url: string }>>({})
 
 // 计算属性 - 显示的书签（搜索时显示搜索结果，否则显示常用书签）
 const filteredBookmarks = computed(() => {
@@ -643,36 +179,6 @@ watch(searchQuery, (newQuery) => {
   debounceSearch(newQuery)
 }, {immediate: false})
 
-// 使用favicon组合式函数
-const { getFaviconUrl } = useFavicon()
-
-// 处理favicon加载错误
-const onFaviconError = (event: Event, url: string) => {
-  const img = event.target as HTMLImageElement
-  const currentSrc = img.src
-  
-  // 如果当前使用的是Google服务
-  if (currentSrc.includes('google.com/s2/favicons')) {
-    console.log(`Google favicon failed for ${url}, trying Sinan API`)
-    // 切换到Sinan API
-    img.src = `/api/favicon/icon?domain=${encodeURIComponent(new URL(url).hostname)}&sz=32`
-  } else {
-    // 如果Sinan API也失败了，使用默认图标
-    console.log(`Sinan API also failed for ${url}, using default icon`)
-    img.src = '/icon.png'
-  }
-}
-
-// 判断图标是否为base64格式
-// 判断是否为有效的图标（HTTP URL 或 base64）
-const isValidIcon = (icon: number | string): boolean => {
-  if (typeof icon !== 'string') return false
-  // 检查是否为 HTTP/HTTPS URL
-  if (icon.startsWith('http://') || icon.startsWith('https://')) return true
-  // 检查是否为 base64 图片
-  if (icon.startsWith('data:image/')) return true
-  return false
-}
 
 // 获取最常访问的书签
 const fetchMostVisited = async () => {
@@ -726,23 +232,8 @@ const handleBookmarkAdded = () => {
 }
 
 // 处理书签更新成功
-const handleBookmarkUpdated = (updatedBookmark: BookmarkResp) => {
-  // 立即更新本地数据
-  if (updatedBookmark) {
-    // 更新最常访问列表中的书签
-    const index = mostVisitedBookmarks.value.findIndex(b => b.id === updatedBookmark.id)
-    if (index !== -1) {
-      mostVisitedBookmarks.value[index] = { ...mostVisitedBookmarks.value[index], ...updatedBookmark }
-    }
-    
-    // 更新搜索结果列表中的书签
-    const searchIndex = searchResults.value.findIndex(b => b.id === updatedBookmark.id)
-    if (searchIndex !== -1) {
-      searchResults.value[searchIndex] = { ...searchResults.value[searchIndex], ...updatedBookmark }
-    }
-  }
-  
-  // 可选：重新获取数据以确保完全同步
+const handleBookmarkUpdated = () => {
+  // 重新获取最常访问的书签以显示更新后的书签
   fetchMostVisited()
   editingBookmark.value = null
 }
@@ -761,16 +252,15 @@ const fetchTags = async () => {
 // 编辑书签
 const editBookmark = async (bookmark: BookmarkResp) => {
   try {
-    // 获取完整的书签信息，包含所有标签
-    const response = await BookmarkAPI.getBookmarkById(bookmark.id) as any
-    if (response?.flag && response?.data) {
-      editingBookmark.value = response.data
+    // 直接使用传入的书签数据，避免额外的 API 调用
+    if (bookmark && bookmark.id) {
+      editingBookmark.value = bookmark
       showEditDialog.value = true
     } else {
-      console.error('Failed to fetch bookmark details')
+      console.error('Invalid bookmark data:', bookmark)
     }
   } catch (error) {
-    console.error('Failed to fetch bookmark for editing:', error)
+    console.error('Failed to open edit dialog:', error)
   }
 }
 
@@ -787,9 +277,8 @@ const deleteBookmark = async () => {
   try {
     const response = await BookmarkAPI.delete(deletingBookmarkId.value) as any
     if (response?.flag) {
-      // 从所有列表中移除已删除的书签
+      // 从列表中移除已删除的书签
       mostVisitedBookmarks.value = mostVisitedBookmarks.value.filter(b => b.id !== deletingBookmarkId.value)
-      searchResults.value = searchResults.value.filter(b => b.id !== deletingBookmarkId.value)
     }
   } catch (error) {
     console.error('Failed to delete bookmark:', error)
@@ -826,29 +315,6 @@ const handleRefresh = async () => {
     ])
   } finally {
     isRefreshing.value = false
-  }
-}
-
-// 重新加载所有书签图标
-const reloadAllFavicons = async () => {
-  try {
-    isReloadingFavicons.value = true
-    const response = await BookmarkAPI.reloadAll(forceReloadFavicon.value)
-    
-    if (response.code === 0) {
-      // 重新加载成功，可以给用户提示
-      console.log('书签图标重新加载成功')
-      // 这里可以添加成功提示
-    } else {
-      console.error('重新加载书签图标失败:', response.message)
-      // 这里可以添加错误提示
-    }
-  } catch (error) {
-    console.error('重新加载书签图标时出错:', error)
-  } finally {
-    isReloadingFavicons.value = false
-    showFaviconReloadDialog.value = false
-    forceReloadFavicon.value = false
   }
 }
 
@@ -918,120 +384,6 @@ const handleTagToggle = async (bookmark: BookmarkResp, tagId: string, event: Eve
   }
 }
 
-// 检查重复书签
-const checkDuplicateBookmarks = async () => {
-  try {
-    duplicateLoading.value = true
-    const params = {
-      level: duplicateCheckLevel.value,
-      ignoreDuplicate: !ignoreDuplicate.value,
-      stronglyCorrelated: stronglyCorrelated.value
-    }
-    const response = await BookmarkAPI.checkDuplicate(params)
-    // 将后端返回的Map转换为前端可用的格式
-    if (response.data) {
-      duplicateBookmarks.value = new Map(Object.entries(response.data))
-      showDuplicateModal.value = true
-    }
-  } catch (error) {
-    console.error('Failed to check duplicate bookmarks:', error)
-    alert('检查重复书签失败，请重试')
-  } finally {
-    duplicateLoading.value = false
-  }
-}
-
-// 忽略重复书签检查
-const ignoreDuplicateBookmark = async (bookmarkId: string) => {
-  try {
-    await BookmarkAPI.ignoreDuplicateCheck(bookmarkId)
-    // 从重复书签列表中移除
-    for (const [domain, bookmarks] of duplicateBookmarks.value) {
-      const filteredBookmarks = bookmarks.filter(b => b.id !== bookmarkId)
-      if (filteredBookmarks.length <= 1) {
-        duplicateBookmarks.value.delete(domain)
-      } else {
-        duplicateBookmarks.value.set(domain, filteredBookmarks)
-      }
-    }
-    duplicateBookmarks.value = new Map(duplicateBookmarks.value)
-  } catch (error) {
-    console.error('Failed to ignore duplicate bookmark:', error)
-    alert('忽略重复检查失败')
-  }
-}
-
-// 删除重复书签
-const deleteDuplicateBookmark = async (bookmarkId: string) => {
-  try {
-    await BookmarkAPI.delete(bookmarkId)
-    // 从重复书签列表中移除
-    for (const [domain, bookmarks] of duplicateBookmarks.value) {
-      const filteredBookmarks = bookmarks.filter(b => b.id !== bookmarkId)
-      if (filteredBookmarks.length <= 1) {
-        duplicateBookmarks.value.delete(domain)
-      } else {
-        duplicateBookmarks.value.set(domain, filteredBookmarks)
-      }
-    }
-    duplicateBookmarks.value = new Map(duplicateBookmarks.value)
-  } catch (error) {
-    console.error('Failed to delete duplicate bookmark:', error)
-    alert('删除书签失败')
-  }
-}
-
-// 开始编辑书签
-const startEditing = (bookmark: any) => {
-  editingBookmarks.value[bookmark.id] = {
-    name: bookmark.name,
-    url: bookmark.url
-  }
-}
-
-// 保存书签编辑
-const saveBookmarkEdit = async (bookmarkId: string) => {
-  try {
-    const editedBookmark = editingBookmarks.value[bookmarkId]
-    if (!editedBookmark || !editedBookmark.name.trim() || !editedBookmark.url.trim()) {
-      alert('书签名称和URL不能为空')
-      return
-    }
-
-    const response = await BookmarkAPI.update({
-      id: bookmarkId,
-      name: editedBookmark.name,
-      url: editedBookmark.url
-    }) as any
-
-    if (response?.flag || response?.code === 0) {
-      // 更新本地数据
-      for (const [domain, bookmarks] of duplicateBookmarks.value) {
-        const updatedBookmarks = bookmarks.map(b => {
-          if (b.id === bookmarkId) {
-            return { ...b, name: editedBookmark.name, url: editedBookmark.url }
-          }
-          return b
-        })
-        duplicateBookmarks.value.set(domain, updatedBookmarks)
-      }
-      // 退出编辑状态
-      delete editingBookmarks.value[bookmarkId]
-    } else {
-      alert('保存失败：' + (response?.message || '未知错误'))
-    }
-  } catch (error) {
-    console.error('Failed to save bookmark edit:', error)
-    alert('保存失败，请重试')
-  }
-}
-
-// 关闭重复书签模态框
-const closeDuplicateModal = () => {
-  showDuplicateModal.value = false
-  duplicateBookmarks.value = new Map()
-  editingBookmarks.value = {}
-}
 
 // 页面加载时获取数据
 onMounted(() => {

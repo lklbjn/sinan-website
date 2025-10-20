@@ -13,7 +13,7 @@ import {
 </script>
 
 <template>
-  <SidebarGroup class="group-data-[collapsible=icon]:hidden">
+  <SidebarGroup>
     <SidebarGroupLabel>常规</SidebarGroupLabel>
     <SidebarMenu>
       <SidebarMenuItem>

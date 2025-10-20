@@ -26,10 +26,14 @@ import {
 import { SpaceAPI, TagAPI } from '@/services/api'
 import type { SpaceResp, TagResp } from '@/types/api'
 import DarkModeToggle from '@/components/DarkModeToggle.vue'
+import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import { Button } from '@/components/ui/button'
-import { BookOpen } from 'lucide-vue-next'
+import { BookOpen, MessageCircle } from 'lucide-vue-next'
 
 const route = useRoute()
+
+// 反馈对话框状态
+const showFeedbackDialog = ref(false)
 
 // 存储空间和标签信息
 const currentSpace = ref<SpaceResp | null>(null)
@@ -131,6 +135,16 @@ const openDocs = () => {
               <BookOpen class="h-5 w-5"/>
               <span class="sr-only">查看文档</span>
             </Button>
+            <Button
+              @click="showFeedbackDialog = true"
+              variant="ghost"
+              size="icon"
+              class="relative"
+              title="意见反馈"
+            >
+              <MessageCircle class="h-5 w-5"/>
+              <span class="sr-only">意见反馈</span>
+            </Button>
             <DarkModeToggle />
           </div>
         </div>
@@ -138,4 +152,7 @@ const openDocs = () => {
       <router-view />
     </SidebarInset>
   </SidebarProvider>
+
+  <!-- 反馈对话框 -->
+  <FeedbackDialog v-model:open="showFeedbackDialog" />
 </template>

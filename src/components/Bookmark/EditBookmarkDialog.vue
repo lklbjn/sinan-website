@@ -1,6 +1,6 @@
 <template>
   <Dialog v-model:open="isOpen">
-    <DialogContent class="sm:max-w-[650px] max-h-[100vh] overflow-y-auto dialog-content">
+    <DialogContent class="sm:max-w-[425px]">
       <DialogHeader>
         <DialogTitle>编辑书签</DialogTitle>
         <DialogDescription>
@@ -83,59 +83,11 @@
         </div>
         <div class="space-y-2">
           <Label>所属空间</Label>
-          <div class="max-h-32 overflow-y-auto border rounded-md p-2 space-tags-container">
-            <div class="flex flex-wrap gap-2">
-              <div
-                v-for="space in availableSpaces"
-                :key="space.id"
-                @click="selectedSpaceId = space.id"
-                class="inline-flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors"
-                :class="selectedSpaceId === space.id 
-                  ? 'bg-primary text-primary-foreground border-primary' 
-                  : 'hover:bg-muted'"
-              >
-                <Icon v-if="space.icon" :name="space.icon" :size="16" />
-                <span class="text-sm">{{ space.name }}</span>
-              </div>
-              <div
-                @click="selectedSpaceId = ''"
-                class="inline-flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors"
-                :class="selectedSpaceId === '' 
-                  ? 'bg-primary text-primary-foreground border-primary' 
-                  : 'hover:bg-muted'"
-              >
-                <span class="text-sm">无空间</span>
-              </div>
-              <div v-if="availableSpaces.length === 0" class="text-sm text-muted-foreground">
-                暂无可用空间
-              </div>
-            </div>
-          </div>
+          <SpaceSelector v-model="selectedSpaceId" />
         </div>
         <div class="space-y-2">
           <Label>标签</Label>
-          <div class="max-h-32 overflow-y-auto border rounded-md p-2 space-tags-container">
-            <div class="flex flex-wrap gap-2">
-              <div
-                v-for="tag in availableTags"
-                :key="tag.id"
-                @click="toggleTag(tag.id)"
-                class="inline-flex items-center gap-1 px-2 py-1 rounded-md border cursor-pointer transition-colors"
-                :class="selectedTagIds.includes(tag.id) 
-                  ? 'bg-primary text-primary-foreground border-primary' 
-                  : 'hover:bg-muted'"
-              >
-                <div 
-                  class="h-2 w-2 rounded-full" 
-                  :style="{ backgroundColor: tag.color || '#52525b' }"
-                />
-                <span class="text-sm">{{ tag.name }}</span>
-              </div>
-              <div v-if="availableTags.length === 0" class="text-sm text-muted-foreground">
-                暂无可用标签
-              </div>
-            </div>
-          </div>
+          <TagSelector v-model="selectedTagIds" />
         </div>
       </div>
       <DialogFooter>
@@ -151,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed } from 'vue'
 import {
   Dialog,
   DialogContent,
@@ -164,10 +116,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Upload } from 'lucide-vue-next'
-import Icon from '@/components/Base/Icon.vue'
-import { BookmarkAPI, TagAPI, SpaceAPI } from '@/services/api'
-import type { BookmarkResp, TagResp, SpaceRespSimple, EditBookmarkReq } from '@/types/api'
-import { eventBus, EVENTS } from '@/utils/eventBus'
+import SpaceSelector from './SpaceSelector.vue'
+import TagSelector from './TagSelector.vue'
+import { BookmarkAPI } from '@/services/api'
+import type { BookmarkResp, EditBookmarkReq } from '@/types/api'
 
 interface Props {
   open: boolean
@@ -177,7 +129,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'success': [bookmark: BookmarkResp]
+  'success': []
 }>()
 
 const isOpen = computed({
@@ -195,8 +147,6 @@ const formData = ref<EditBookmarkReq>({
 })
 
 const selectedTagIds = ref<string[]>([])
-const availableTags = ref<TagResp[]>([])
-const availableSpaces = ref<SpaceRespSimple[]>([])
 const selectedSpaceId = ref<string>('')
 const isSubmitting = ref(false)
 const iconLoadError = ref(false)
@@ -235,42 +185,7 @@ const iconValidationClass = computed(() => {
   return isIconValid.value ? 'border-green-500' : 'border-red-500'
 })
 
-// 获取所有标签
-const fetchTags = async () => {
-  try {
-    const response = await TagAPI.getAllList()
-    availableTags.value = response.data || []
-  } catch (error) {
-    console.error('Failed to fetch tags:', error)
-  }
-}
 
-// 获取所有空间
-const fetchSpaces = async () => {
-  try {
-    const response = await SpaceAPI.getAllList()
-    availableSpaces.value = response.data.records || response.data
-    
-    // 检查空间列表是否包含当前选中的空间ID
-    if (props.bookmark && availableSpaces.value.length > 0) {
-      const spaceId = props.bookmark.spaceId || props.bookmark.namespaceId || ''
-      
-      // 检查空间ID是否在可用空间列表中
-      const spaceExists = availableSpaces.value.some(space => space.id === spaceId)
-      
-      if (spaceExists) {
-        selectedSpaceId.value = spaceId
-      } else {
-        selectedSpaceId.value = ''
-      }
-    } else if (props.bookmark) {
-      const spaceId = props.bookmark.spaceId || props.bookmark.namespaceId || ''
-      selectedSpaceId.value = spaceId
-    }
-  } catch (error) {
-    console.error('Failed to fetch spaces:', error)
-  }
-}
 
 // 图标加载错误处理
 const onIconError = () => {
@@ -331,15 +246,6 @@ const handleFileUpload = async (event: Event) => {
   }
 }
 
-// 切换标签选择
-const toggleTag = (tagId: string) => {
-  const index = selectedTagIds.value.indexOf(tagId)
-  if (index > -1) {
-    selectedTagIds.value.splice(index, 1)
-  } else {
-    selectedTagIds.value.push(tagId)
-  }
-}
 
 // 处理保存
 const handleSave = async () => {
@@ -361,22 +267,15 @@ const handleSave = async () => {
       tags: validTagIds.length > 0 ? validTagIds : undefined
     }
     
+    console.log('Update data:', updateData)
+    
     const response = await BookmarkAPI.update(updateData) as any
+    
+    console.log('Update response:', response)
     
     // 检查多种可能的成功响应格式
     if (response?.flag || response?.code === 0 || response?.data) {
-      // 构建更新后的书签对象传递给父组件
-      const updatedBookmark: BookmarkResp = {
-        ...props.bookmark!,
-        name: formData.value.name,
-        url: formData.value.url,
-        description: formData.value.description || '',
-        icon: formData.value.icon || '',
-        spaceId: selectedSpaceId.value || '',
-        namespaceId: selectedSpaceId.value || undefined,
-        tags: availableTags.value.filter(tag => selectedTagIds.value.includes(tag.id))
-      }
-      emit('success', updatedBookmark)
+      emit('success')
       isOpen.value = false
     } else {
       console.error('Failed to update bookmark:', response)
@@ -423,27 +322,5 @@ watch(() => props.bookmark, (newBookmark) => {
   }
 }, { immediate: true })
 
-// 组件挂载时获取标签和空间
-watch(isOpen, async (newValue) => {
-  if (newValue) {
-    await fetchTags()
-    await fetchSpaces()
-  }
-})
 
-// 监听标签刷新事件
-const handleRefreshTags = () => {
-  fetchTags()
-}
-
-onMounted(() => {
-  // 监听标签列表刷新事件
-  eventBus.on(EVENTS.REFRESH_TAGS, handleRefreshTags)
-})
-
-onUnmounted(() => {
-  // 清理事件监听器
-  eventBus.off(EVENTS.REFRESH_TAGS, handleRefreshTags)
-})
 </script>
-

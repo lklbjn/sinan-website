@@ -8,16 +8,21 @@ import {
   LogOut,
   Upload,
   Download,
+  Database,
   ListOrdered,
   GripVertical,
   Trash2,
-  KeyRound,
   Key,
-  Copy,
   Plus,
   User,
   Edit,
   Settings,
+  SearchCheck,
+  FileX,
+  Check,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from "lucide-vue-next"
 
 import {
@@ -34,6 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useFavicon } from '@/composables/useFavicon'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,7 +61,6 @@ import {
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {Button} from '@/components/ui/button'
-import {Separator} from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -63,6 +68,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -112,8 +123,15 @@ const importResultMessage = ref('')
 const jsonFileInput = ref<HTMLInputElement>()
 const isImportingJson = ref(false)
 
+// 头像上传相关
+const avatarFileInput = ref<HTMLInputElement>()
+const isUploadingAvatar = ref(false)
+
 // 导出相关
 const isExporting = ref(false)
+
+// 用户数据管理相关
+const showUserDataManagementDialog = ref(false)
 
 // 删除用户数据相关
 const showClearDataDialog = ref(false)
@@ -165,6 +183,7 @@ const newCreatedKey = ref<UserKeyResp | null>(null)
 const showAccountSettingsDialog = ref(false)
 const isEditingName = ref(false)
 const newUserName = ref('')
+const isSavingUserName = ref(false)
 const userPasskeys = ref<PasskeyResp[]>([])
 const isLoadingPasskeys = ref(false)
 const isUpdatingPasskey = ref(false)
@@ -179,12 +198,164 @@ const newPasskeyForm = ref({
   description: ''
 })
 
+// 安全管理相关
+const showSecurityManagementDialog = ref(false)
+
 // 系统设置相关
 const showSystemSettingsDialog = ref(false)
 const systemSettings = ref({
   faviconSource: 'google' // 'google' | 'sinan'
 })
 
+// 检查重复书签相关
+const showDuplicateCheckDialog = ref(false)
+const isCheckingDuplicates = ref(false)
+const duplicateBookmarks = ref<any[]>([])
+const selectedBookmarks = ref<{[groupName: string]: string[]}>({}) // 存储每组中用户选择保留的书签ID数组
+
+// 重复检查等级相关
+const duplicateCheckLevel = ref(1) // 默认Level 1: 完整URL匹配
+const showIgnoredGroups = ref(false) // 默认关闭：隐藏忽略组
+const ignoredGroups = ref<Set<string>>(new Set()) // 存储被忽略的组名
+
+// 统计信息
+const duplicateStats = ref<{
+  totalBookmarks: number
+  duplicateGroups: number
+  duplicateCount: number
+}>({
+  totalBookmarks: 0,
+  duplicateGroups: 0,
+  duplicateCount: 0
+})
+
+// 等级定义
+const DUPLICATE_LEVELS = {
+  1: { name: 'Full Match', description: '完整URL匹配' },
+  2: { name: '2nd-Level Domain', description: '2级域名匹配' },
+  3: { name: '3rd-Level Domain', description: '3级域名匹配' }
+} as const
+
+// 使用favicon功能
+const { getFaviconUrl } = useFavicon()
+
+// 判断是否为有效的图标（HTTP URL 或 base64）
+const isValidIcon = (icon: number | string): boolean => {
+  if (typeof icon !== 'string') return false
+  // 检查是否为 HTTP/HTTPS URL
+  if (icon.startsWith('http://') || icon.startsWith('https://')) return true
+  // 检查是否为 base64 图片
+  if (icon.startsWith('data:image/')) return true
+  return false
+}
+
+// 处理上传图标加载错误
+const onIconError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.style.opacity = '0'
+  window.setTimeout(() => {
+    img.style.display = 'none'
+    const fallback = img.parentElement?.querySelector('.fallback-icon')
+    if (fallback) (fallback as HTMLElement).style.opacity = '1'
+  }, 200)
+}
+
+// 处理favicon加载错误
+const onFaviconError = (event: Event, url: string) => {
+  const img = event.target as HTMLImageElement
+  const currentSrc = img.src
+
+  // 标记图标加载失败
+  iconLoadStatus.value[img.dataset.bookmarkId || ''] = false
+
+  // 如果当前使用的是Google服务
+  if (currentSrc.includes('google.com/s2/favicons')) {
+    console.log(`Google favicon failed for ${url}, trying Sinan API`)
+    // 切换到Sinan API
+    img.src = `/api/favicon/icon?domain=${encodeURIComponent(new URL(url).hostname)}&sz=32`
+  } else {
+    // 如果Sinan API也失败了，使用默认图标
+    console.log(`Sinan API also failed for ${url}, using default icon`)
+    img.style.opacity = '0'
+    window.setTimeout(() => {
+      img.style.display = 'none'
+      const fallback = img.parentElement?.querySelector('.fallback-icon')
+      if (fallback) (fallback as HTMLElement).style.opacity = '1'
+    }, 200)
+  }
+}
+
+// 获取书签首字母
+const getBookmarkInitial = (name: string): string => {
+  if (!name || name.trim() === '') return 'B'
+  return name.trim()[0].toUpperCase()
+}
+
+
+
+
+// 忽略书签组
+const ignoreGroup = async (groupName: string) => {
+  try {
+    await BookmarkAPI.addIgnoredGroup(groupName)
+    ignoredGroups.value.add(groupName)
+  } catch (error) {
+    console.error('添加忽略组失败:', error)
+    importResultMessage.value = '添加忽略组失败，请稍后重试'
+    showImportResult.value = true
+  }
+}
+
+// 取消忽略书签组
+const unignoreGroup = async (groupName: string) => {
+  try {
+    await BookmarkAPI.removeIgnoredGroup(groupName)
+    ignoredGroups.value.delete(groupName)
+  } catch (error) {
+    console.error('移除忽略组失败:', error)
+    importResultMessage.value = '移除忽略组失败，请稍后重试'
+    showImportResult.value = true
+  }
+}
+
+// 切换忽略状态
+const toggleIgnoreGroup = async (groupName: string) => {
+  if (ignoredGroups.value.has(groupName)) {
+    await unignoreGroup(groupName)
+  } else {
+    await ignoreGroup(groupName)
+  }
+}
+
+// 检查组是否被忽略
+const isGroupIgnored = (groupName: string): boolean => {
+  return ignoredGroups.value.has(groupName)
+}
+
+// 获取过滤后的书签组
+const getFilteredDuplicateGroups = computed(() => {
+  if (showIgnoredGroups.value) {
+    return duplicateBookmarks.value
+  }
+  return duplicateBookmarks.value.filter(group => !isGroupIgnored(group.group))
+})
+
+// 图标加载状态管理
+const iconLoadStatus = ref<Record<string, boolean>>({})
+
+// 检查图标是否已加载
+const isIconLoaded = (bookmarkId: string): boolean => {
+  return iconLoadStatus.value[bookmarkId] === true
+}
+
+// 标记图标加载成功
+const onIconLoad = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  const bookmarkId = img.dataset.bookmarkId
+  if (bookmarkId) {
+    iconLoadStatus.value[bookmarkId] = true
+  }
+}
 
 const fetchUserInfo = async () => {
   try {
@@ -202,7 +373,9 @@ const fetchUserInfo = async () => {
 }
 
 const handleLogout = () => {
-  // 删除 cookie 中的 satoken
+  // 清除所有token存储
+  localStorage.removeItem('token')
+  sessionStorage.removeItem('token')
   document.cookie = 'satoken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
 
   // 跳转到 /auth 页面
@@ -465,6 +638,63 @@ const handleJsonFileSelect = async (event: Event) => {
   }
 }
 
+// 触发头像文件选择
+const triggerAvatarSelect = () => {
+  avatarFileInput.value?.click()
+}
+
+// 处理头像文件选择
+const handleAvatarSelect = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (!file) return
+
+  // 检查文件类型
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
+  if (!allowedTypes.includes(file.type)) {
+    accountSettingsErrors.value = ['请选择 JPG 或 PNG 格式的图片文件']
+    if (target) target.value = ''
+    return
+  }
+
+  // 检查文件大小 (限制为5MB)
+  const maxSize = 5 * 1024 * 1024 // 5MB
+  if (file.size > maxSize) {
+    accountSettingsErrors.value = ['图片文件大小不能超过 5MB']
+    if (target) target.value = ''
+    return
+  }
+
+  try {
+    isUploadingAvatar.value = true
+    accountSettingsErrors.value = []
+
+    // 调用头像上传API
+    const response = await UserAPI.uploadAvatar(file)
+
+    if (response.flag && response.data) {
+      // API返回的是完整的头像URL
+      if (user.value) {
+        user.value.avatar = response.data
+      }
+    } else {
+      throw new Error(response.message || '上传失败')
+    }
+
+    // 清除文件选择
+    if (target) target.value = ''
+
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    const errorMessage = error instanceof Error ? error.message : '头像上传失败，请稍后重试'
+    accountSettingsErrors.value = [errorMessage]
+    if (target) target.value = ''
+  } finally {
+    isUploadingAvatar.value = false
+  }
+}
+
 // 处理导出
 const handleExport = async () => {
   try {
@@ -481,6 +711,11 @@ const handleExport = async () => {
   } finally {
     isExporting.value = false
   }
+}
+
+// 打开用户数据管理对话框
+const openUserDataManagementDialog = () => {
+  showUserDataManagementDialog.value = true
 }
 
 // 处理清空用户数据
@@ -508,7 +743,9 @@ const executeClearData = async () => {
     const response = await UserAPI.clear()
 
     if (response.code === 0) {
-      // 清空成功，删除 cookie 并跳转到登录页
+      // 清空成功，清除所有token存储并跳转到登录页
+      localStorage.removeItem('token')
+      sessionStorage.removeItem('token')
       document.cookie = 'satoken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
       router.push('/auth')
     } else {
@@ -526,12 +763,6 @@ const executeClearData = async () => {
   }
 }
 
-// 打开修改密码对话框
-const openChangePasswordDialog = async () => {
-  showChangePasswordDialog.value = true
-  resetChangePasswordForm()
-  await checkPasswordState()
-}
 
 // 检查密码状态
 const checkPasswordState = async () => {
@@ -648,13 +879,6 @@ const cancelChangePassword = () => {
   resetChangePasswordForm()
 }
 
-// 打开Key管理对话框
-const openKeyManagementDialog = async () => {
-  showKeyManagementDialog.value = true
-  showCreateKeyForm.value = false
-  resetCreateKeyForm()
-  await fetchUserKeys()
-}
 
 // 获取用户Keys
 const fetchUserKeys = async () => {
@@ -744,14 +968,6 @@ const deleteKey = async (keyId: string) => {
   }
 }
 
-// 复制AccessToken到剪贴板
-const copyAccessToken = async (token: string) => {
-  try {
-    await navigator.clipboard.writeText(token)
-  } catch (error) {
-    console.error('复制失败:', error)
-  }
-}
 
 // 关闭Key管理对话框
 const closeKeyManagementDialog = () => {
@@ -766,6 +982,18 @@ const openAccountSettingsDialog = async () => {
   isEditingName.value = false
   showRegisterPasskeyForm.value = false
   newUserName.value = user.value?.name || ''
+  resetNewPasskeyForm()
+  await fetchUserPasskeys()
+}
+
+// 打开安全管理对话框
+const openSecurityManagementDialog = async () => {
+  showSecurityManagementDialog.value = true
+  // 初始化相关数据
+  resetChangePasswordForm()
+  await checkPasswordState()
+  resetCreateKeyForm()
+  await fetchUserKeys()
   resetNewPasskeyForm()
   await fetchUserPasskeys()
 }
@@ -818,16 +1046,24 @@ const saveUserName = async () => {
   }
 
   try {
-    // 这里需要调用更新用户名的API
-    // 暂时先模拟成功
-    if (user.value) {
-      user.value.name = newUserName.value
-    }
-    isEditingName.value = false
+    isSavingUserName.value = true
     accountSettingsErrors.value = []
-  } catch (error) {
+    const response = await UserAPI.changeUsername(newUserName.value.trim())
+
+    if (response.code === 0) {
+      // 更新成功，更新本地用户信息
+      if (user.value) {
+        user.value.name = newUserName.value.trim()
+      }
+      isEditingName.value = false
+    } else {
+      accountSettingsErrors.value = [response.message || '修改用户名失败']
+    }
+  } catch (error: any) {
     console.error('更新用户名失败:', error)
-    accountSettingsErrors.value = ['更新用户名失败，请稍后重试']
+    accountSettingsErrors.value = [error.response?.data?.message || '更新用户名失败，请稍后重试']
+  } finally {
+    isSavingUserName.value = false
   }
 }
 
@@ -1080,6 +1316,171 @@ const closeSystemSettingsDialog = () => {
   showSystemSettingsDialog.value = false
 }
 
+// 打开检查重复书签对话框
+const openDuplicateCheckDialog = async () => {
+  showDuplicateCheckDialog.value = true
+  await loadIgnoredGroups()
+  await checkDuplicateBookmarks()
+}
+
+const checkDuplicateBookmarks = async () => {
+  try {
+    isCheckingDuplicates.value = true
+    duplicateBookmarks.value = []
+
+    // 调用接口，传递检查等级
+    const response = await BookmarkAPI.checkDuplicates(duplicateCheckLevel.value)
+
+    if (response.code === 0 && response.data) {
+      // 后端已经按等级过滤和处理，直接使用结果
+      const duplicateData: any[] = response.data.duplicates || []
+      const stats = response.data.stats || {}
+
+      // 更新统计信息
+      duplicateStats.value = {
+        totalBookmarks: stats.totalBookmarks || 0,
+        duplicateGroups: stats.duplicateGroups || 0,
+        duplicateCount: stats.duplicateCount || 0
+      }
+
+      // 转换数据结构以适配前端显示
+      duplicateBookmarks.value = duplicateData.map((group: any) => ({
+        group: group.group,
+        level: duplicateCheckLevel.value,
+        bookmarks: group.bookmarks.map((bookmark: any) => ({
+          ...bookmark,
+          // 确保createTime字段存在
+          createTime: bookmark.createTime || bookmark.updateTime || new Date().toISOString()
+        })).sort((a: any, b: any) => new Date(a.createTime).getTime() - new Date(b.createTime).getTime())
+      }))
+
+      console.log('Duplicate stats:', duplicateStats.value)
+    } else {
+      importResultMessage.value = `检查失败：${response.message || '未知错误'}`
+      duplicateBookmarks.value = []
+      // 重置统计信息
+      duplicateStats.value = { totalBookmarks: 0, duplicateGroups: 0, duplicateCount: 0 }
+    }
+  } catch (error) {
+    console.error('检查重复书签失败:', error)
+    importResultMessage.value = '检查失败，请稍后重试'
+    duplicateBookmarks.value = []
+    // 重置统计信息
+    duplicateStats.value = { totalBookmarks: 0, duplicateGroups: 0, duplicateCount: 0 }
+  } finally {
+    isCheckingDuplicates.value = false
+  }
+}
+
+// 关闭检查重复书签对话框
+const closeDuplicateCheckDialog = () => {
+  showDuplicateCheckDialog.value = false
+  duplicateBookmarks.value = []
+  selectedBookmarks.value = {} // 清除用户选择
+  ignoredGroups.value.clear() // 清除忽略组
+}
+
+// 标签处理辅助函数
+const getVisibleTags = (tags: any[]) => {
+  if (!tags || !Array.isArray(tags)) return []
+  return tags.slice(0, 2)
+}
+
+const getHiddenTagsCount = (tags: any[]) => {
+  if (!tags || !Array.isArray(tags)) return 0
+  return Math.max(0, tags.length - 2)
+}
+
+const getHiddenTagsNames = (tags: any[]) => {
+  if (!tags || !Array.isArray(tags)) return ''
+  const hiddenTags = tags.slice(2)
+  return hiddenTags.map(tag => tag.name || tag).join(', ')
+}
+
+// 切换显示忽略组并触发检查
+const toggleShowIgnoredGroups = () => {
+  showIgnoredGroups.value = !showIgnoredGroups.value
+  checkDuplicateBookmarks()
+}
+
+// 加载忽略组
+const loadIgnoredGroups = async () => {
+  try {
+    const response = await BookmarkAPI.getIgnoredGroups()
+    if (response.code === 0 && response.data) {
+      ignoredGroups.value = new Set(response.data)
+    }
+  } catch (error) {
+    console.error('加载忽略组失败:', error)
+  }
+}
+
+// 保存选中的书签（删除未选中的）
+const saveSelectedBookmarks = async (groupName: string) => {
+  try {
+    const duplicatesToDelete = duplicateBookmarks.value.find(group => group.group === groupName)
+    if (!duplicatesToDelete) return
+
+    const selectedIds = selectedBookmarks.value[groupName]
+    if (!selectedIds || selectedIds.length === 0) {
+      importResultMessage.value = '请先选择要保存的书签'
+      showImportResult.value = true
+      return
+    }
+
+    // 删除未选中的书签
+    const bookmarksToDelete = duplicatesToDelete.bookmarks.filter((bookmark: any) => !selectedIds.includes(bookmark.id))
+
+    // 调用删除API
+    for (const bookmark of bookmarksToDelete) {
+      await BookmarkAPI.delete(bookmark.id)
+    }
+
+    // 清除该组的选择
+    delete selectedBookmarks.value[groupName]
+
+    // 重新检查重复书签
+    await checkDuplicateBookmarks()
+  } catch (error) {
+    console.error('删除重复书签失败:', error)
+    importResultMessage.value = '删除失败，请稍后重试'
+    showImportResult.value = true
+  }
+}
+
+// 删除单个书签
+const deleteSingleBookmark = async (bookmarkId: string) => {
+  try {
+    await BookmarkAPI.delete(bookmarkId)
+    await checkDuplicateBookmarks()
+  } catch (error) {
+    console.error('删除书签失败:', error)
+    importResultMessage.value = '删除失败，请稍后重试'
+    showImportResult.value = true
+  }
+}
+
+
+// 选择要保留的书签（支持多选）
+const selectBookmarkToKeep = (groupName: string, bookmarkId: string) => {
+  if (!selectedBookmarks.value[groupName]) {
+    selectedBookmarks.value[groupName] = []
+  }
+
+  const index = selectedBookmarks.value[groupName].indexOf(bookmarkId)
+  if (index === -1) {
+    // 添加到选中列表
+    selectedBookmarks.value[groupName].push(bookmarkId)
+  } else {
+    // 从选中列表中移除
+    selectedBookmarks.value[groupName].splice(index, 1)
+    // 如果数组为空，删除该组
+    if (selectedBookmarks.value[groupName].length === 0) {
+      delete selectedBookmarks.value[groupName]
+    }
+  }
+}
+
 onMounted(() => {
   fetchUserInfo()
   loadSystemSettings() // 初始化时加载系统设置
@@ -1099,7 +1500,7 @@ onMounted(() => {
               class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
           >
             <Avatar class="h-8 w-8 rounded-lg">
-              <AvatarImage :src="user.avatar" :alt="user.name"/>
+              <AvatarImage :src="user.avatar || ''" :alt="user.name"/>
               <AvatarFallback class="rounded-lg">
                 {{ user.name.slice(0, 2).toUpperCase() }}
               </AvatarFallback>
@@ -1120,7 +1521,7 @@ onMounted(() => {
           <DropdownMenuLabel class="p-0 font-normal">
             <div class="flex items-center gap-2 px-2 py-2 text-left text-sm">
               <Avatar class="h-7 w-7 rounded-lg flex-shrink-0">
-                <AvatarImage :src="user.avatar" :alt="user.name"/>
+                <AvatarImage :src="user.avatar || ''" :alt="user.name"/>
                 <AvatarFallback class="rounded-lg">
                   {{ user.name.slice(0, 2).toUpperCase() }}
                 </AvatarFallback>
@@ -1145,27 +1546,23 @@ onMounted(() => {
             <Upload/>
             导入Chrome书签
           </DropdownMenuItem>
-          <DropdownMenuItem @click="triggerJsonFileSelect" :disabled="isImportingJson">
-            <Upload/>
-            {{ isImportingJson ? '导入中...' : '导入用户数据' }}
+          <DropdownMenuItem @click="openUserDataManagementDialog">
+            <Database/>
+            用户数据管理
           </DropdownMenuItem>
-          <DropdownMenuItem @click="handleExport" :disabled="isExporting">
-            <Download/>
-            {{ isExporting ? '导出中...' : '导出用户数据' }}
+          <DropdownMenuItem @click="openDuplicateCheckDialog" :disabled="isCheckingDuplicates">
+            <SearchCheck/>
+            {{ isCheckingDuplicates ? '检查中...' : '检查重复书签' }}
           </DropdownMenuItem>
           <DropdownMenuSeparator/>
-          <DropdownMenuGroup>
-            <DropdownMenuItem @click="openChangePasswordDialog">
-              <KeyRound/>
-              修改密码
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="openKeyManagementDialog">
-              <Key/>
-              插件密钥
-            </DropdownMenuItem>
             <DropdownMenuItem @click="openAccountSettingsDialog">
               <BadgeCheck/>
-              账户设置
+              用户设置
+            </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem @click="openSecurityManagementDialog">
+              <ShieldCheck/>
+              安全管理
             </DropdownMenuItem>
             <DropdownMenuItem @click="openSystemSettingsDialog">
               <Settings/>
@@ -1208,6 +1605,15 @@ onMounted(() => {
       accept=".json,application/json"
       style="display: none"
       @change="handleJsonFileSelect"
+  />
+
+  <!-- 头像文件输入框 -->
+  <input
+      ref="avatarFileInput"
+      type="file"
+      accept="image/jpeg,image/png,image/jpg"
+      style="display: none"
+      @change="handleAvatarSelect"
   />
 
   <!-- 导入结果对话框 -->
@@ -1387,82 +1793,6 @@ onMounted(() => {
     </AlertDialogContent>
   </AlertDialog>
 
-  <!-- 修改密码对话框 -->
-  <AlertDialog v-model:open="showChangePasswordDialog">
-    <AlertDialogContent class="cursor-pointer">
-      <AlertDialogHeader>
-        <AlertDialogTitle>修改密码</AlertDialogTitle>
-        <AlertDialogDescription>
-          请输入当前密码和新密码来修改您的账户密码
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-
-      <div class="space-y-4 py-4">
-        <!-- 加载状态 -->
-        <div v-if="isLoadingPasswordState" class="text-center py-4 text-muted-foreground">
-          正在检查密码状态...
-        </div>
-
-        <!-- 错误提示 -->
-        <div v-if="passwordErrors.length > 0" class="bg-red-50 border border-red-200 rounded-md p-3">
-          <ul class="text-sm text-red-600 space-y-1">
-            <li v-for="error in passwordErrors" :key="error">{{ error }}</li>
-          </ul>
-        </div>
-
-        <!-- 当前密码 - 只有在需要时才显示 -->
-        <div v-if="needOldPassword" class="space-y-2">
-          <Label for="current-password">当前密码</Label>
-          <Input
-              id="current-password"
-              type="password"
-              v-model="changePasswordForm.currentPassword"
-              placeholder="请输入当前密码"
-              :disabled="isChangingPassword"
-              autocomplete="current-password"
-          />
-        </div>
-
-        <!-- 新密码 -->
-        <div class="space-y-2">
-          <Label for="new-password">新密码</Label>
-          <Input
-              id="new-password"
-              type="password"
-              v-model="changePasswordForm.newPassword"
-              placeholder="请输入新密码（6-20位）"
-              :disabled="isChangingPassword"
-              autocomplete="new-password"
-          />
-        </div>
-
-        <!-- 确认新密码 -->
-        <div class="space-y-2">
-          <Label for="confirm-password">确认新密码</Label>
-          <Input
-              id="confirm-password"
-              type="password"
-              v-model="changePasswordForm.confirmPassword"
-              placeholder="请再次输入新密码"
-              :disabled="isChangingPassword"
-              autocomplete="new-password"
-          />
-        </div>
-      </div>
-
-      <AlertDialogFooter>
-        <AlertDialogCancel @click="cancelChangePassword" :disabled="isChangingPassword">
-          取消
-        </AlertDialogCancel>
-        <AlertDialogAction
-            @click="executeChangePassword"
-            :disabled="isChangingPassword || isLoadingPasswordState || !changePasswordForm.newPassword || !changePasswordForm.confirmPassword || (needOldPassword && !changePasswordForm.currentPassword)"
-        >
-          {{ isChangingPassword ? '修改中...' : '确认修改' }}
-        </AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 
   <!-- Key管理对话框 -->
   <Dialog v-model:open="showKeyManagementDialog">
@@ -1486,15 +1816,16 @@ onMounted(() => {
         </div>
 
         <!-- 创建新密钥按钮 -->
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center py-2">
           <h3 class="text-sm font-medium">密钥列表</h3>
           <Button
               @click="showCreateForm"
               size="sm"
               :disabled="isLoadingKeys || isCreatingKey"
               v-if="!showCreateKeyForm"
+              class="px-3 py-1.5"
           >
-            <Plus class="h-4 w-4 mr-1"/>
+            <Plus class="h-4 w-4 mr-1.5"/>
             创建密钥
           </Button>
         </div>
@@ -1596,66 +1927,6 @@ onMounted(() => {
     </DialogContent>
   </Dialog>
 
-  <!-- 新密钥创建成功对话框 -->
-  <AlertDialog v-model:open="showNewKeyDialog">
-    <AlertDialogContent class="cursor-pointer">
-      <AlertDialogHeader>
-        <AlertDialogTitle class="flex items-center gap-2 text-green-600">
-          <Key class="h-5 w-5"/>
-          密钥创建成功！
-        </AlertDialogTitle>
-        <AlertDialogDescription>
-          您的新密钥已创建成功。请立即复制并妥善保存，关闭此对话框后将无法再次查看完整密钥。
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-
-      <div class="space-y-4 py-4" v-if="newCreatedKey">
-        <!-- 密钥信息 -->
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
-          <div class="space-y-1">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">密钥名称:</span>
-              <span class="text-sm">{{ newCreatedKey.keyName || '未命名密钥' }}</span>
-            </div>
-            <div v-if="newCreatedKey.description" class="flex items-center gap-2">
-              <span class="text-sm font-medium">描述:</span>
-              <span class="text-sm text-muted-foreground">{{ newCreatedKey.description }}</span>
-            </div>
-          </div>
-
-          <!-- AccessToken显示区域 -->
-          <div class="space-y-2">
-            <Label class="text-sm font-medium text-green-700">Access Token:</Label>
-            <div class="relative">
-              <div
-                  class="font-mono text-sm bg-white p-3 rounded border-2 border-green-300 min-h-[60px] break-all select-all">
-                {{ newCreatedKey.accessKey }}
-              </div>
-              <Button
-                  variant="outline"
-                  size="sm"
-                  @click="copyAccessToken(newCreatedKey.accessKey)"
-                  class="absolute top-2 right-2"
-              >
-                <Copy class="h-4 w-4"/>
-                复制
-              </Button>
-            </div>
-          </div>
-
-          <div class="text-xs text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
-            ⚠️ 重要提示：请立即复制并保存此密钥，关闭对话框后将无法再次查看完整内容
-          </div>
-        </div>
-      </div>
-
-      <AlertDialogFooter>
-        <AlertDialogAction @click="showNewKeyDialog = false" class="bg-green-600 hover:bg-green-700">
-          我已保存密钥
-        </AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 
   <!-- 账户设置对话框 -->
   <Dialog v-model:open="showAccountSettingsDialog">
@@ -1666,7 +1937,7 @@ onMounted(() => {
           账户设置
         </DialogTitle>
         <DialogDescription>
-          管理您的账户基本信息和Passkey凭证
+          管理您的账户基本信息
         </DialogDescription>
       </DialogHeader>
 
@@ -1682,6 +1953,33 @@ onMounted(() => {
         <div class="space-y-4">
           <h3 class="text-sm font-medium">基本信息</h3>
 
+          <!-- 头像设置 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <Label class="text-sm">头像</Label>
+            <div class="md:col-span-2 flex items-center gap-4">
+              <Avatar class="h-16 w-16 rounded-lg">
+                <AvatarImage :src="user?.avatar || ''" :alt="user?.name || ''"/>
+                <AvatarFallback class="rounded-lg">
+                  {{ user?.name?.slice(0, 2).toUpperCase() || 'UN' }}
+                </AvatarFallback>
+              </Avatar>
+              <div class="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  @click="triggerAvatarSelect"
+                  :disabled="isUploadingAvatar"
+                >
+                  <Upload class="h-3 w-3 mr-1"/>
+                  {{ isUploadingAvatar ? '上传中...' : '更换头像' }}
+                </Button>
+                <p class="text-xs text-muted-foreground">
+                  支持 JPG、PNG 格式，建议尺寸 200x200 像素
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             <Label class="text-sm">用户名</Label>
             <div class="md:col-span-2">
@@ -1696,9 +1994,12 @@ onMounted(() => {
                     v-model="newUserName"
                     placeholder="请输入用户名"
                     class="flex-1"
+                    :disabled="isSavingUserName"
                 />
-                <Button size="sm" @click="saveUserName">保存</Button>
-                <Button variant="outline" size="sm" @click="cancelEditingName">取消</Button>
+                <Button size="sm" @click="saveUserName" :disabled="isSavingUserName">
+                  {{ isSavingUserName ? '保存中...' : '保存' }}
+                </Button>
+                <Button variant="outline" size="sm" @click="cancelEditingName" :disabled="isSavingUserName">取消</Button>
               </div>
             </div>
           </div>
@@ -1706,137 +2007,6 @@ onMounted(() => {
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             <Label class="text-sm">邮箱</Label>
             <span class="md:col-span-2 text-sm text-muted-foreground">{{ user?.email }}</span>
-          </div>
-        </div>
-
-        <Separator/>
-
-        <!-- Passkey管理 -->
-        <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <h3 class="text-sm font-medium">Passkey凭证管理</h3>
-            <div class="flex items-center gap-2">
-              <Button
-                  size="sm"
-                  :disabled="isLoadingPasskeys"
-                  @click="fetchUserPasskeys"
-              >
-                刷新
-              </Button>
-              <Button
-                  size="sm"
-                  @click="showRegisterForm"
-                  :disabled="isLoadingPasskeys || showRegisterPasskeyForm"
-              >
-                <Plus class="h-3 w-3 mr-1"/>
-                添加
-              </Button>
-            </div>
-          </div>
-
-          <!-- 注册Passkey表单 -->
-          <div v-if="showRegisterPasskeyForm" class="bg-muted/50 p-4 rounded-lg space-y-3">
-            <div class="flex items-center justify-between">
-              <h4 class="text-sm font-medium">注册新Passkey</h4>
-              <Button variant="ghost" size="sm" @click="showRegisterPasskeyForm = false">
-                取消
-              </Button>
-            </div>
-
-            <div class="space-y-3">
-              <div class="space-y-2">
-                <Label for="passkey-description">Passkey描述</Label>
-                <Input
-                    id="passkey-description"
-                    v-model="newPasskeyForm.description"
-                    placeholder="请输入Passkey描述（可选）"
-                    :disabled="isRegisteringPasskey"
-                />
-              </div>
-
-              <Button
-                  @click="registerPasskey"
-                  :disabled="isRegisteringPasskey"
-                  class="w-full"
-              >
-                {{ isRegisteringPasskey ? '注册中...' : '注册Passkey' }}
-              </Button>
-            </div>
-          </div>
-
-          <!-- 加载状态 -->
-          <div v-if="isLoadingPasskeys" class="text-center py-8 text-muted-foreground">
-            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-            加载Passkey列表...
-          </div>
-
-          <!-- 空状态 -->
-          <div v-else-if="userPasskeys.length === 0" class="text-center py-8 text-muted-foreground">
-            <Key class="h-12 w-12 mx-auto mb-2 opacity-50"/>
-            <p>暂无Passkey凭证</p>
-            <p class="text-xs">您尚未注册任何Passkey凭证</p>
-          </div>
-
-          <!-- Passkey列表 -->
-          <div v-else class="space-y-2 max-h-[300px] overflow-y-auto">
-            <div
-                v-for="passkey in userPasskeys"
-                :key="passkey.id"
-                class="border rounded-lg p-3 bg-card"
-            >
-              <!-- 单行显示 Passkey 信息 -->
-              <div v-if="editingPasskeyId !== passkey.id" class="flex items-center gap-2">
-                <Key class="h-4 w-4 text-primary flex-shrink-0"/>
-                <span v-if="passkey.describe" class="text-sm font-medium min-w-[100px]">
-                  {{ passkey.describe }}
-                </span>
-                <span v-else class="text-sm text-muted-foreground italic min-w-[100px]">
-                  暂无描述
-                </span>
-                <div class="text-xs text-muted-foreground flex-1">
-                  ID: {{ passkey.id.slice(0, 12) }}...
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  最后使用: {{ new Date(passkey.lastUsed).toLocaleDateString() }}
-                </div>
-                <Button variant="ghost" size="sm" @click="startEditingPasskeyDescription(passkey)">
-                  <Edit class="h-3 w-3"/>
-                </Button>
-                <Button
-                    variant="destructive"
-                    size="sm"
-                    @click="deletePasskey(passkey.id)"
-                    :disabled="isDeletingPasskey"
-                >
-                  <Trash2 class="h-3 w-3"/>
-                </Button>
-              </div>
-
-              <!-- 编辑模式 -->
-              <div v-else class="flex items-center gap-2">
-                <Key class="h-4 w-4 text-primary flex-shrink-0"/>
-                <Input
-                    v-model="editingPasskeyDescription"
-                    placeholder="请输入描述"
-                    class="flex-1 max-w-[200px]"
-                />
-                <Button
-                    size="sm"
-                    @click="savePasskeyDescription(passkey.id)"
-                    :disabled="isUpdatingPasskey"
-                >
-                  保存
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    @click="cancelEditingPasskeyDescription"
-                    :disabled="isUpdatingPasskey"
-                >
-                  取消
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -1890,6 +2060,764 @@ onMounted(() => {
         </Button>
         <Button @click="saveSystemSettings">
           保存设置
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- 检查重复书签对话框 -->
+  <Dialog v-model:open="showDuplicateCheckDialog">
+    <DialogContent class="sm:max-w-4xl h-[80vh] p-0 flex flex-col rounded-lg overflow-hidden">
+      <!-- 固定在顶部的对话框头部 -->
+      <div class="flex-shrink-0 bg-background border-b p-6">
+        <DialogHeader>
+          <DialogTitle class="flex items-center gap-2">
+            <SearchCheck class="h-5 w-5"/>
+            检查重复书签
+          </DialogTitle>
+          <DialogDescription>
+            检查并列出您的重复书签，帮助您清理冗余数据
+          </DialogDescription>
+        </DialogHeader>
+
+        <!-- 控制选项区域 -->
+        <div class="flex items-center justify-between mt-4">
+          <!-- 左侧控制选项 -->
+          <div class="flex items-center gap-4">
+            <!-- 检查等级选择 -->
+            <div class="flex items-center gap-2">
+              <Label for="check-level" class="text-sm font-medium">检查等级:</Label>
+              <Select v-model="duplicateCheckLevel" id="check-level" @update:modelValue="checkDuplicateBookmarks">
+              <SelectTrigger class="w-64">
+                <SelectValue placeholder="选择检查等级"/>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem :value="1">
+                  <div class="flex flex-col">
+                    <span class="font-medium">{{ DUPLICATE_LEVELS[1].name }}</span>
+                    <span class="text-xs text-muted-foreground">{{ DUPLICATE_LEVELS[1].description }}</span>
+                  </div>
+                </SelectItem>
+                <SelectItem :value="2">
+                  <div class="flex flex-col">
+                    <span class="font-medium">{{ DUPLICATE_LEVELS[2].name }}</span>
+                    <span class="text-xs text-muted-foreground">{{ DUPLICATE_LEVELS[2].description }}</span>
+                  </div>
+                </SelectItem>
+                <SelectItem :value="3">
+                  <div class="flex flex-col">
+                    <span class="font-medium">{{ DUPLICATE_LEVELS[3].name }}</span>
+                    <span class="text-xs text-muted-foreground">{{ DUPLICATE_LEVELS[3].description }}</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <!-- 显示忽略组开关 -->
+          <div class="flex items-center gap-2">
+            <Label for="show-ignored" class="text-sm font-medium">显示忽略组:</Label>
+            <div class="relative inline-flex h-6 w-11 items-center rounded-full bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                 :class="showIgnoredGroups ? 'bg-primary' : 'bg-muted'"
+                 @click="toggleShowIgnoredGroups"
+                 role="switch"
+                 :aria-checked="showIgnoredGroups">
+              <span class="sr-only">显示忽略组</span>
+              <span
+                class="inline-block h-4 w-4 transform rounded-full bg-background transition-transform"
+                :class="showIgnoredGroups ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </div>
+          </div>
+          </div>
+
+          <!-- 右侧检查按钮 -->
+          <Button
+            @click="checkDuplicateBookmarks"
+            :disabled="isCheckingDuplicates"
+            size="sm">
+            <SearchCheck class="h-3 w-3 mr-1"/>
+            {{ isCheckingDuplicates ? '检查中...' : '检查' }}
+          </Button>
+        </div>
+        <div class="flex items-center justify-between text-sm mt-2">
+          <div class="flex items-center gap-4">
+            <span class="text-muted-foreground">总书签数:</span>
+            <span class="font-medium">{{ duplicateStats.totalBookmarks }}</span>
+
+            <span class="text-muted-foreground">重复组数:</span>
+            <span class="font-medium text-orange-600">{{ duplicateStats.duplicateGroups }}</span>
+
+            <span class="text-muted-foreground">重复书签:</span>
+            <span class="font-medium text-red-600">{{ duplicateStats.duplicateCount }}</span>
+          </div>
+
+          <div class="text-xs text-muted-foreground">
+            检查等级: {{ DUPLICATE_LEVELS[duplicateCheckLevel as keyof typeof DUPLICATE_LEVELS].name }}
+          </div>
+        </div>
+      </div>
+      <!-- 可滚动的内容区域 -->
+      <div class="flex-1 overflow-y-auto px-6 py-4">
+  
+        <!-- 加载状态 -->
+        <div v-if="isCheckingDuplicates" class="text-center py-8">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p class="text-muted-foreground">正在检查重复书签...</p>
+        </div>
+
+        <!-- 无重复书签 -->
+        <div v-else-if="getFilteredDuplicateGroups.length === 0" class="text-center py-8">
+          <FileX class="h-12 w-12 mx-auto mb-4 text-green-500"/>
+          <p class="text-lg font-medium text-green-600">恭喜！没有发现重复书签</p>
+          <p class="text-sm text-muted-foreground">您的书签库非常整洁</p>
+        </div>
+
+        <!-- 重复书签列表 -->
+        <div v-else class="space-y-4">
+          <div v-for="group in getFilteredDuplicateGroups" :key="group.group" class="border rounded-lg p-3">
+            <!-- 组标题 -->
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <h3 class="font-medium text-sm">{{ group.group }}</h3>
+                <span class="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
+                  {{ group.bookmarks.length }} 个重复
+                </span>
+                <span v-if="selectedBookmarks[group.group] && selectedBookmarks[group.group].length > 0" class="bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-full">
+                  已选择 {{ selectedBookmarks[group.group].length }} 个
+                </span>
+                <span v-if="isGroupIgnored(group.group)" class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                  已忽略
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  @click="toggleIgnoreGroup(group.group)"
+                  :class="isGroupIgnored(group.group) ? 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200' : 'text-orange-600 border-orange-200 hover:bg-orange-50'"
+                  class="text-xs"
+                >
+                  <EyeOff v-if="isGroupIgnored(group.group)" class="h-3 w-3 mr-1"/>
+                  <Eye v-else class="h-3 w-3 mr-1"/>
+                  {{ isGroupIgnored(group.group) ? '取消忽略' : '忽略组' }}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  @click="saveSelectedBookmarks(group.group)"
+                  :disabled="!selectedBookmarks[group.group] || selectedBookmarks[group.group].length === 0 || isGroupIgnored(group.group)"
+                  class="text-green-600 border-green-200 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Check class="h-3 w-3 mr-1"/>
+                  保存选中的
+                </Button>
+              </div>
+            </div>
+
+            <!-- 书签列表 -->
+            <div class="space-y-1">
+              <div
+                v-for="bookmark in group.bookmarks"
+                :key="bookmark.id"
+                class="flex items-center justify-between p-3 rounded-md border bg-card transition-all duration-200 cursor-pointer hover:bg-accent/5"
+                :class="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id) ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' : 'bg-card'"
+                @click="selectBookmarkToKeep(group.group, bookmark.id)"
+              >
+                <!-- 左侧信息：复选框、图标、名称、URL、空间、标签 -->
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <!-- 复选框 -->
+                  <div class="flex items-center justify-center flex-shrink-0">
+                    <div
+                      class="w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-all duration-200"
+                      :class="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id)
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'border-gray-300 hover:border-blue-400'"
+                    >
+                      <Check
+                        v-if="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id)"
+                        class="w-2.5 h-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- 网站图标 -->
+                  <div class="relative w-6 h-6 rounded-full flex-shrink-0 overflow-hidden bg-muted">
+                    <!-- 优先使用书签上传的图标 -->
+                    <img
+                      v-if="isValidIcon(bookmark.icon)"
+                      :src="bookmark.icon"
+                      :data-bookmark-id="bookmark.id"
+                      class="w-full h-full object-cover transition-opacity duration-200"
+                      :alt="bookmark.name"
+                      loading="lazy"
+                      @load="onIconLoad"
+                      @error="onIconError"
+                    />
+                    <!-- 其次使用favicon服务 -->
+                    <img
+                      v-else-if="getFaviconUrl(bookmark.url)"
+                      :src="getFaviconUrl(bookmark.url)"
+                      :data-bookmark-id="bookmark.id"
+                      class="w-full h-full object-cover transition-opacity duration-200"
+                      :alt="bookmark.name"
+                      loading="lazy"
+                      @load="onIconLoad"
+                      @error="(e) => onFaviconError(e, bookmark.url)"
+                    />
+                    <!-- 默认使用首字母图标 -->
+                    <div
+                      class="fallback-icon absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs transition-opacity duration-200"
+                      :style="isValidIcon(bookmark.icon) || getFaviconUrl(bookmark.url) ? 'opacity: 0;' : 'opacity: 1;'"
+                    >
+                      {{ getBookmarkInitial(bookmark.name) }}
+                    </div>
+                    <!-- 加载状态指示器 -->
+                    <div
+                      v-if="isValidIcon(bookmark.icon) || getFaviconUrl(bookmark.url)"
+                      class="absolute inset-0 bg-muted/50 backdrop-blur-sm flex items-center justify-center"
+                      :class="{ 'opacity-0': isIconLoaded(bookmark.id), 'opacity-100': !isIconLoaded(bookmark.id) }"
+                    >
+                      <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    </div>
+                  </div>
+
+                  <!-- 书签名称 -->
+                  <div class="flex-shrink-0 min-w-0 max-w-32">
+                    <div class="flex items-center gap-2">
+                      <h4 class="font-medium text-sm truncate">{{ bookmark.name }}</h4>
+                      <span v-if="selectedBookmarks[group.group] && selectedBookmarks[group.group].includes(bookmark.id)" class="bg-blue-100 text-blue-600 text-xs px-1.5 py-0.5 rounded whitespace-nowrap">
+                        ✓ 已选择
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- 书签URL -->
+                  <div class="flex-shrink-0 min-w-0 max-w-48">
+                    <p class="text-xs text-muted-foreground truncate">{{ bookmark.url }}</p>
+                  </div>
+
+                  <!-- 空间信息 -->
+                  <div v-if="bookmark.space" class="flex-shrink-0">
+                    <span class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      {{ bookmark.space.name }}
+                    </span>
+                  </div>
+
+                  <!-- 标签信息 -->
+                  <div v-if="bookmark.tags && bookmark.tags.length > 0" class="flex-shrink-0 flex items-center gap-1 min-w-0">
+                    <span
+                      v-for="tag in getVisibleTags(bookmark.tags)"
+                      :key="tag.id"
+                      class="text-xs px-1.5 py-0.5 rounded-full font-medium border flex-shrink-0 max-w-20 truncate"
+                      :style="{
+                        backgroundColor: `${tag.color}15`,
+                        color: tag.color,
+                        borderColor: `${tag.color}30`
+                      }"
+                      :title="tag.name"
+                    >
+                      {{ tag.name }}
+                    </span>
+                    <span
+                      v-if="getHiddenTagsCount(bookmark.tags) > 0"
+                      class="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full flex-shrink-0 cursor-help"
+                      :title="getHiddenTagsNames(bookmark.tags)"
+                    >
+                      +{{ getHiddenTagsCount(bookmark.tags) }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 右侧：创建时间和删除按钮 -->
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <!-- 创建时间 -->
+                  <div class="text-xs text-muted-foreground whitespace-nowrap">
+                    {{ new Date(bookmark.createTime).toLocaleDateString() }}
+                  </div>
+
+                  <!-- 操作按钮 -->
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    @click.stop="deleteSingleBookmark(bookmark.id)"
+                    class="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0 p-1 h-auto"
+                  >
+                    <Trash2 class="h-3 w-3"/>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
+      </div>
+
+      <!-- 固定在底部的按钮区域 -->
+      <div class="flex-shrink-0 bg-background border-t p-6">
+        <DialogFooter>
+          <Button variant="outline" @click="closeDuplicateCheckDialog">
+            关闭
+          </Button>
+        </DialogFooter>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- 安全管理对话框 -->
+  <Dialog v-model:open="showSecurityManagementDialog">
+    <DialogContent class="sm:max-w-xl">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <ShieldCheck class="h-5 w-5"/>
+          安全管理
+        </DialogTitle>
+        <DialogDescription>
+          管理您的密码、Passkey凭证和API密钥
+        </DialogDescription>
+      </DialogHeader>
+
+      <Tabs default-value="password" class="w-full">
+        <TabsList class="grid w-full grid-cols-3">
+          <TabsTrigger value="password">修改密码</TabsTrigger>
+          <TabsTrigger value="passkey">Passkey</TabsTrigger>
+          <TabsTrigger value="apikey">插件密钥</TabsTrigger>
+        </TabsList>
+
+        <!-- Tab 1: 修改密码 -->
+        <TabsContent value="password" class="space-y-4">
+          <div class="space-y-4 py-4">
+            <!-- 加载状态 -->
+            <div v-if="isLoadingPasswordState" class="text-center py-4 text-muted-foreground">
+              正在检查密码状态...
+            </div>
+
+            <!-- 错误信息 -->
+            <div v-if="passwordErrors.length > 0" class="space-y-2">
+              <div v-for="error in passwordErrors" :key="error" class="text-sm text-red-600 bg-red-50 p-2 rounded">
+                {{ error }}
+              </div>
+            </div>
+
+            <!-- 密码表单 -->
+            <div v-if="!isLoadingPasswordState" class="space-y-4">
+              <!-- 当前密码 -->
+              <div v-if="needOldPassword" class="space-y-2">
+                <Label for="current-password">当前密码</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  v-model="changePasswordForm.currentPassword"
+                  placeholder="请输入当前密码"
+                  :disabled="isChangingPassword"
+                />
+              </div>
+
+              <!-- 新密码 -->
+              <div class="space-y-2">
+                <Label for="new-password">新密码</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  v-model="changePasswordForm.newPassword"
+                  placeholder="请输入新密码"
+                  :disabled="isChangingPassword"
+                />
+              </div>
+
+              <!-- 确认密码 -->
+              <div class="space-y-2">
+                <Label for="confirm-password">确认新密码</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  v-model="changePasswordForm.confirmPassword"
+                  placeholder="请再次输入新密码"
+                  :disabled="isChangingPassword"
+                />
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="flex gap-2 pt-4">
+                <Button
+                  @click="executeChangePassword"
+                  :disabled="isChangingPassword || isLoadingPasswordState || !changePasswordForm.newPassword || !changePasswordForm.confirmPassword || (needOldPassword && !changePasswordForm.currentPassword)"
+                  class="flex-1"
+                >
+                  {{ isChangingPassword ? '修改中...' : '确认修改' }}
+                </Button>
+                <Button variant="outline" @click="cancelChangePassword" :disabled="isChangingPassword" class="flex-1">
+                  取消
+                </Button>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <!-- Tab 2: Passkey 管理 -->
+        <TabsContent value="passkey" class="space-y-4">
+          <div class="space-y-4">
+            <div class="flex justify-between items-center py-2">
+              <h3 class="text-sm font-medium">Passkey凭证管理</h3>
+              <div class="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  :disabled="isLoadingPasskeys"
+                  @click="fetchUserPasskeys"
+                  class="px-3 py-1.5"
+                >
+                  刷新
+                </Button>
+                <Button
+                  size="sm"
+                  @click="showRegisterForm"
+                  :disabled="isLoadingPasskeys || showRegisterPasskeyForm"
+                  class="px-3 py-1.5"
+                >
+                  <Plus class="h-3 w-3 mr-1.5"/>
+                  添加
+                </Button>
+              </div>
+            </div>
+
+            <!-- 错误信息 -->
+            <div v-if="accountSettingsErrors.length > 0" class="space-y-2">
+              <div v-for="error in accountSettingsErrors" :key="error" class="text-sm text-red-600 bg-red-50 p-2 rounded">
+                {{ error }}
+              </div>
+            </div>
+
+            <!-- 注册Passkey表单 -->
+            <div v-if="showRegisterPasskeyForm" class="bg-muted/50 p-4 rounded-lg space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-sm font-medium">注册新Passkey</h4>
+                <Button variant="ghost" size="sm" @click="showRegisterPasskeyForm = false">
+                  取消
+                </Button>
+              </div>
+
+              <div class="space-y-3">
+                <div class="space-y-2">
+                  <Label for="passkey-description">Passkey描述</Label>
+                  <Input
+                    id="passkey-description"
+                    v-model="newPasskeyForm.description"
+                    placeholder="请输入Passkey描述（可选）"
+                    :disabled="isRegisteringPasskey"
+                  />
+                </div>
+                <Button
+                  @click="registerPasskey"
+                  :disabled="isRegisteringPasskey"
+                  class="w-full"
+                >
+                  {{ isRegisteringPasskey ? '注册中...' : '注册Passkey' }}
+                </Button>
+              </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div v-if="isLoadingPasskeys" class="text-center py-8 text-muted-foreground">
+              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+              加载Passkey列表...
+            </div>
+
+            <!-- 空状态 -->
+            <div v-else-if="userPasskeys.length === 0" class="text-center py-8 text-muted-foreground">
+              <Key class="h-12 w-12 mx-auto mb-2 opacity-50"/>
+              <p>暂无Passkey凭证</p>
+              <p class="text-xs">您尚未注册任何Passkey凭证</p>
+            </div>
+
+            <!-- Passkey列表 -->
+            <div v-else class="space-y-2 max-h-[400px] overflow-y-auto">
+              <div
+                v-for="passkey in userPasskeys"
+                :key="passkey.id"
+                class="border rounded-lg p-3 bg-card"
+              >
+                <!-- 单行显示 Passkey 信息 -->
+                <div v-if="editingPasskeyId !== passkey.id" class="flex items-center gap-2">
+                  <Key class="h-4 w-4 text-primary flex-shrink-0"/>
+                  <span v-if="passkey.describe" class="text-sm font-medium min-w-[100px]">
+                    {{ passkey.describe }}
+                  </span>
+                  <span v-else class="text-sm text-muted-foreground min-w-[100px]">未命名Passkey</span>
+
+                  <div class="flex-1 text-xs text-muted-foreground text-right">
+                    最后使用: {{ new Date(passkey.lastUsed).toLocaleDateString() === '1000/1/1' ? '未使用过' : new Date(passkey.lastUsed).toLocaleDateString() }}
+                  </div>
+                  <Button variant="ghost" size="sm" @click="startEditingPasskeyDescription(passkey)">
+                    <Edit class="h-3 w-3"/>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    @click="deletePasskey(passkey.id)"
+                    :disabled="isDeletingPasskey"
+                  >
+                    <Trash2 class="h-3 w-3"/>
+                  </Button>
+                </div>
+
+                <!-- 编辑模式 -->
+                <div v-else class="flex items-center gap-2">
+                  <Key class="h-4 w-4 text-primary flex-shrink-0"/>
+                  <Input
+                    v-model="editingPasskeyDescription"
+                    placeholder="请输入描述"
+                    class="flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    @click="savePasskeyDescription(passkey.id)"
+                    :disabled="isUpdatingPasskey"
+                  >
+                    保存
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    @click="cancelEditingPasskeyDescription"
+                    :disabled="isUpdatingPasskey"
+                  >
+                    取消
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <!-- Tab 3: 插件密钥管理 -->
+        <TabsContent value="apikey" class="space-y-4">
+          <div class="space-y-4">
+            <div class="flex justify-between items-center py-2">
+              <h3 class="text-sm font-medium">插件密钥管理</h3>
+              <div class="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  :disabled="isLoadingKeys"
+                  @click="fetchUserKeys"
+                  class="px-3 py-1.5"
+                >
+                  刷新
+                </Button>
+                <Button
+                  size="sm"
+                  @click="showCreateKeyForm = true"
+                  :disabled="isLoadingKeys || showCreateKeyForm"
+                  class="px-3 py-1.5"
+                >
+                  <Plus class="h-3 w-3 mr-1.5"/>
+                  创建
+                </Button>
+              </div>
+            </div>
+
+            <!-- 错误信息 -->
+            <div v-if="keyErrors.length > 0" class="space-y-2">
+              <div v-for="error in keyErrors" :key="error" class="text-sm text-red-600 bg-red-50 p-2 rounded">
+                {{ error }}
+              </div>
+            </div>
+
+            <!-- 创建密钥表单 -->
+            <div v-if="showCreateKeyForm" class="bg-muted/50 p-4 rounded-lg space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-sm font-medium">创建新密钥</h4>
+                <Button variant="ghost" size="sm" @click="showCreateKeyForm = false">
+                  取消
+                </Button>
+              </div>
+
+              <div class="space-y-3">
+                <div class="space-y-2">
+                  <Label for="key-name">密钥名称*</Label>
+                  <Input
+                    id="key-name"
+                    v-model="newKeyForm.keyName"
+                    placeholder="请输入密钥名称"
+                    :disabled="isCreatingKey"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label for="key-description">密钥描述</Label>
+                  <Input
+                    id="key-description"
+                    v-model="newKeyForm.description"
+                    placeholder="请输入密钥描述（可选）"
+                    :disabled="isCreatingKey"
+                  />
+                </div>
+                <Button
+                  @click="createNewKey"
+                  :disabled="isCreatingKey || !newKeyForm.keyName"
+                  class="w-full"
+                >
+                  {{ isCreatingKey ? '创建中...' : '创建密钥' }}
+                </Button>
+              </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div v-if="isLoadingKeys" class="text-center py-8 text-muted-foreground">
+              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+              加载密钥列表...
+            </div>
+
+            <!-- 空状态 -->
+            <div v-else-if="userKeys.length === 0" class="text-center py-8 text-muted-foreground">
+              <Key class="h-12 w-12 mx-auto mb-2 opacity-50"/>
+              <p>暂无密钥</p>
+              <p class="text-xs">创建您的第一个插件密钥</p>
+            </div>
+
+            <!-- 密钥列表 -->
+            <div v-else class="space-y-2 max-h-[400px] overflow-y-auto">
+              <div
+                v-for="keyItem in userKeys"
+                :key="keyItem.id"
+                class="border rounded-lg p-3 bg-card"
+              >
+                <!-- 单行显示：名称、描述、密钥值、创建时间和删除按钮 -->
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-2 min-w-0 flex-shrink-0">
+                    <Key class="h-4 w-4 text-primary"/>
+                    <span class="font-medium text-sm">{{ keyItem.keyName }}</span>
+                  </div>
+                  <div v-if="keyItem.description" class="flex-1 min-w-0">
+                    <span class="text-xs text-muted-foreground truncate block">{{ keyItem.description }}</span>
+                  </div>
+                  <div class="font-mono text-xs bg-muted px-2 py-1 rounded border flex-shrink-0">
+                    <span class="text-muted-foreground">{{ keyItem.accessKey }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+                    <div class="text-xs text-muted-foreground whitespace-nowrap">
+                      {{ new Date(keyItem.createTime).toLocaleDateString() }}
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      @click="deleteKey(keyItem.id)"
+                      :disabled="isDeletingKey && deletingKeyId === keyItem.id"
+                    >
+                      <Trash2 class="h-3 w-3"/>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <DialogFooter>
+        <Button variant="outline" @click="showSecurityManagementDialog = false">
+          关闭
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- 新密钥创建成功对话框 -->
+  <AlertDialog v-model:open="showNewKeyDialog">
+    <AlertDialogContent class="cursor-pointer">
+      <AlertDialogHeader>
+        <AlertDialogTitle class="flex items-center gap-2 text-green-600">
+          <Key class="h-5 w-5"/>
+          密钥创建成功！
+        </AlertDialogTitle>
+        <AlertDialogDescription>
+          您的新密钥已创建成功。请立即复制并妥善保存，关闭此对话框后将无法再次查看完整密钥。
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+
+      <div class="space-y-4 py-4" v-if="newCreatedKey">
+        <!-- 密钥信息 -->
+        <div class="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium">密钥名称:</span>
+              <span class="text-sm">{{ newCreatedKey.keyName || '未命名密钥' }}</span>
+            </div>
+            <div v-if="newCreatedKey.description" class="flex items-center gap-2">
+              <span class="text-sm font-medium">描述:</span>
+              <span class="text-sm text-muted-foreground">{{ newCreatedKey.description }}</span>
+            </div>
+          </div>
+
+          <!-- AccessToken显示区域 -->
+          <div class="space-y-2">
+            <Label class="text-sm font-medium text-green-700 dark:text-green-300">Access Token:</Label>
+            <div class="font-mono text-sm bg-white dark:bg-gray-900 dark:text-green-100 p-3 rounded border-2 border-green-300 dark:border-green-700 min-h-[60px] break-all select-all flex items-center">
+              {{ newCreatedKey.accessKey }}
+            </div>
+          </div>
+
+          <div class="text-xs text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-950 p-2 rounded border border-orange-200 dark:border-orange-800">
+            ⚠️ 重要提示：请立即复制并保存此密钥，关闭对话框后将无法再次查看完整内容
+          </div>
+        </div>
+      </div>
+
+      <AlertDialogFooter>
+        <AlertDialogAction @click="showNewKeyDialog = false" class="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800">
+          我已保存密钥
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+
+  <!-- 用户数据管理对话框 -->
+  <Dialog v-model:open="showUserDataManagementDialog">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <Database class="h-5 w-5"/>
+          用户数据管理
+        </DialogTitle>
+        <DialogDescription>
+          管理您的用户数据，包括导入和导出功能
+        </DialogDescription>
+      </DialogHeader>
+
+      <div class="space-y-4 py-4">
+        <div class="grid grid-cols-1 gap-3">
+          <!-- 导入用户数据按钮 -->
+          <Button
+            @click="triggerJsonFileSelect"
+            :disabled="isImportingJson"
+            variant="outline"
+            class="h-12 justify-start gap-3"
+          >
+            <Upload class="h-4 w-4"/>
+            <div class="text-left">
+              <div class="font-medium">{{ isImportingJson ? '导入中...' : '导入用户数据' }}</div>
+              <div class="text-xs text-muted-foreground">从JSON文件导入书签、标签和空间</div>
+            </div>
+          </Button>
+
+          <!-- 导出用户数据按钮 -->
+          <Button
+            @click="handleExport"
+            :disabled="isExporting"
+            variant="outline"
+            class="h-12 justify-start gap-3"
+          >
+            <Download class="h-4 w-4"/>
+            <div class="text-left">
+              <div class="font-medium">{{ isExporting ? '导出中...' : '导出用户数据' }}</div>
+              <div class="text-xs text-muted-foreground">导出所有书签、标签和空间到JSON文件</div>
+            </div>
+          </Button>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" @click="showUserDataManagementDialog = false">
+          关闭
         </Button>
       </DialogFooter>
     </DialogContent>

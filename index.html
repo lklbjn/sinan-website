@@ -1,10 +1,274 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sinan</title>
+
+    <!-- Primary Meta Tags -->
+    <title>Sinan - 全平台书签管理工具 | 多设备同步书签管理</title>
+    <meta name="title" content="Sinan - 全平台书签管理工具 | 多设备同步书签管理" />
+    <meta name="description" content="Sinan - 全平台书签管理工具，支持多设备同步，标签分类，空间订阅，让您的书签管理更加高效便捷。免费、开源、安全的书签整理解决方案。" />
+    <meta name="keywords" content="书签管理,书签同步,书签工具,网页收藏,标签分类,多设备同步,书签整理,Sinan,bookmark manager" />
+    <meta name="author" content="Sinan Team" />
+    <meta name="robots" content="index, follow" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="bingbot" content="index, follow" />
+
+    <!-- Viewport and Mobile Optimization -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Sinan" />
+
+    <!-- Favicon and Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sinan" />
+    <meta property="og:title" content="Sinan - 全平台书签管理工具" />
+    <meta property="og:description" content="全平台书签管理工具，支持多设备同步，标签分类，空间订阅，让您的书签管理更加高效便捷。" />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Sinan 书签管理工具界面预览" />
+    <meta property="og:locale" content="zh_CN" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Sinan - 全平台书签管理工具" />
+    <meta name="twitter:description" content="全平台书签管理工具，支持多设备同步，标签分类，空间订阅，让您的书签管理更加高效便捷。" />
+    <meta name="twitter:image" content="/twitter-image.png" />
+    <meta name="twitter:image:alt" content="Sinan 书签管理工具" />
+
+    <!-- WeChat / 微信优化 -->
+    <meta name="weixin:card" content="summary_large_image" />
+    <meta name="weixin:title" content="Sinan - 全平台书签管理工具" />
+    <meta name="weixin:description" content="免费开源的书签管理！支持多设备同步、智能分类、一键导入导出。让你的网页收藏井井有条，随时随地访问重要书签。" />
+    <meta name="weixin:image" content="/wechat-share-image.png" />
+    <meta name="weixin:site" content="Sinan 书签管理" />
+
+    <!-- 微信小程序关联 -->
+    <meta name="wx:appid" content="" />
+    <meta name="wx:path" content="pages/index/index" />
+
+    <!-- QQ 分享优化 -->
+    <meta name="qq:title" content="Sinan - 全平台书签管理工具" />
+    <meta name="qq:description" content="免费开源的书签管理！支持多设备同步、智能分类、一键导入导出。" />
+    <meta name="qq:image" content="/qq-share-image.png" />
+
+    <!-- 微博分享优化 -->
+    <meta name="weibo:title" content="Sinan - 全平台书签管理工具" />
+    <meta name="weibo:description" content="免费开源的书签管理！支持多设备同步、智能分类、一键导入导出。#书签管理 #效率工具 #开源软件" />
+    <meta name="weibo:image" content="/weibo-share-image.png" />
+
+    <!-- 支付宝小程序关联 -->
+    <meta name="alipay:appid" content="" />
+    <meta name="alipay:path" content="pages/index/index" />
+
+    <!-- 百度小程序关联 -->
+    <meta name="baidu:appid" content="" />
+    <meta name="baidu:path" content="pages/index/index" />
+
+    <!-- 字节跳动小程序关联 -->
+    <meta name="bytedance:appid" content="" />
+    <meta name="bytedance:path" content="pages/index/index" />
+
+    <!-- Additional SEO Meta Tags -->
+    <meta name="application-name" content="Sinan" />
+    <meta name="msapplication-TileColor" content="#3b82f6" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+
+    <!-- Preconnect for Performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Sinan",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Web, Windows, macOS, Linux, iOS, Android",
+      "description": "全平台书签管理工具，支持多设备同步，标签分类，空间订阅，让您的书签管理更加高效便捷。",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CNY"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1000"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Sinan Team"
+      },
+      "screenshot": "/screenshot.png",
+      "softwareVersion": "1.0.0"
+    }
+    </script>
+
+    <!-- WeChat JSSDK 微信JS-SDK -->
+    <script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+
+    <!-- 微信分享优化脚本 -->
+    <script>
+      // 微信分享配置
+      if (typeof wx !== 'undefined') {
+        // 需要在后端配置微信JS-SDK签名
+        wx.config({
+          debug: false,
+          appId: '', // 必填，公众号的唯一标识
+          timestamp: '', // 必填，生成签名的时间戳
+          nonceStr: '', // 必填，生成签名的随机串
+          signature: '', // 必填，签名
+          jsApiList: [
+            'updateAppMessageShareData',
+            'updateTimelineShareData',
+            'onMenuShareTimeline',
+            'onMenuShareAppMessage'
+          ]
+        });
+
+        wx.ready(function() {
+          const shareData = {
+            title: 'Sinan - 全平台书签管理工具',
+            desc: '免费开源的书签管理！支持多设备同步、智能分类、一键导入导出。让你的网页收藏井井有条，随时随地访问重要书签。',
+            link: window.location.href,
+            imgUrl: window.location.origin + '/wechat-share-image.png',
+            success: function() {
+              console.log('分享成功');
+            },
+            cancel: function() {
+              console.log('分享取消');
+            }
+          };
+
+          // 分享到朋友圈
+          wx.updateTimelineShareData(shareData);
+          wx.onMenuShareTimeline(shareData);
+
+          // 分享给朋友
+          wx.updateAppMessageShareData(shareData);
+          wx.onMenuShareAppMessage(shareData);
+        });
+
+        wx.error(function(res) {
+          console.error('微信JS-SDK配置失败:', res);
+        });
+      }
+
+      // 检测微信浏览器
+      function isWeixinBrowser() {
+        return /micromessenger/i.test(navigator.userAgent);
+      }
+
+      // 针对微信浏览器的优化
+      if (isWeixinBrowser()) {
+        // 禁用微信浏览器的下拉刷新
+        document.addEventListener('touchmove', function(e) {
+          if (e.touches.length === 1) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        // 微信浏览器字体大小调整
+        (function() {
+          if (typeof WeixinJSBridge == "object" && typeof WeixinJSBridge.invoke == "function") {
+            handleFontSize();
+          } else {
+            if (document.addEventListener) {
+              document.addEventListener("WeixinJSBridgeReady", handleFontSize, false);
+            } else if (document.attachEvent) {
+              document.attachEvent("WeixinJSBridgeReady", handleFontSize);
+              document.attachEvent("onWeixinJSBridgeReady", handleFontSize);
+            }
+          }
+          function handleFontSize() {
+            WeixinJSBridge.invoke('setFontSizeCallback', { 'fontSize' : 0 });
+            WeixinJSBridge.on('menu:setfont', function() {
+              WeixinJSBridge.invoke('setFontSizeCallback', { 'fontSize' : 0 });
+            });
+          }
+        })();
+      }
+    </script>
+
+    <!-- Dark Mode Favicon Script -->
+    <script>
+      (function() {
+        function updateFavicon() {
+          const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const favicon = document.querySelector('link[rel="icon"]');
+          const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+          let browserconfig = document.querySelector('meta[name="msapplication-config"]');
+
+          if (isDarkMode) {
+            // Use white icon for dark mode
+            if (favicon) favicon.href = '/icon-white.svg';
+            if (appleTouchIcon) appleTouchIcon.href = '/icon-white.svg';
+            if (browserconfig) browserconfig.content = '/browserconfig-dark.xml';
+          } else {
+            // Use original icon for light mode
+            if (favicon) favicon.href = '/icon.svg';
+            if (appleTouchIcon) appleTouchIcon.href = '/icon.svg';
+            if (browserconfig) browserconfig.content = '/browserconfig.xml';
+          }
+        }
+
+        // Update favicon on page load
+        updateFavicon();
+
+        // Listen for dark mode changes
+        if (window.matchMedia) {
+          const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+          mediaQuery.addListener(updateFavicon);
+        }
+
+        // Also check for manual theme changes in the app
+        const observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' &&
+                (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
+              // Check if document has dark mode class/attribute
+              const hasDarkClass = document.documentElement.classList.contains('dark') ||
+                                 document.documentElement.getAttribute('data-theme') === 'dark' ||
+                                 document.body.classList.contains('dark');
+
+              const favicon = document.querySelector('link[rel="icon"]');
+              const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+              let browserconfig = document.querySelector('meta[name="msapplication-config"]');
+
+              if (hasDarkClass) {
+                if (favicon) favicon.href = '/icon-white.svg';
+                if (appleTouchIcon) appleTouchIcon.href = '/icon-white.svg';
+                if (browserconfig) browserconfig.content = '/browserconfig-dark.xml';
+              } else {
+                if (favicon) favicon.href = '/icon.svg';
+                if (appleTouchIcon) appleTouchIcon.href = '/icon.svg';
+                if (browserconfig) browserconfig.content = '/browserconfig.xml';
+              }
+            }
+          });
+        });
+
+        // Observe changes to html and body elements
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['class', 'data-theme']
+        });
+        observer.observe(document.body, {
+          attributes: true,
+          attributeFilter: ['class', 'data-theme']
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
